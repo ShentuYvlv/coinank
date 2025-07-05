@@ -12,7 +12,8 @@ class CoinankApp {
         this.charts = {};
         this.data = null;
         this.isLoading = false;
-        this.timeRangePercent = 100; // 时间范围百分比
+        this.timeRangeStart = 0; // 开始时间百分比
+        this.timeRangeEnd = 100; // 结束时间百分比
         this.showPrice = true;
         this.showOI = true;
         
@@ -58,14 +59,39 @@ class CoinankApp {
             });
         });
 
-        // 时间周期滑块
-        const timeRangeSlider = document.getElementById('timeRangeSlider');
-        if (timeRangeSlider) {
-            timeRangeSlider.addEventListener('input', (e) => {
-                this.timeRangePercent = parseInt(e.target.value);
+        // 双端时间周期滑块
+        const timeRangeStart = document.getElementById('timeRangeStart');
+        const timeRangeEnd = document.getElementById('timeRangeEnd');
+        
+        if (timeRangeStart && timeRangeEnd) {
+            timeRangeStart.addEventListener('input', (e) => {
+                const startValue = parseInt(e.target.value);
+                if (startValue >= this.timeRangeEnd) {
+                    this.timeRangeStart = this.timeRangeEnd - 1;
+                    timeRangeStart.value = this.timeRangeStart;
+                } else {
+                    this.timeRangeStart = startValue;
+                }
+                this.updateRangeHighlight();
                 this.updateTimeRangeLabel();
                 this.updatePriceChart();
             });
+            
+            timeRangeEnd.addEventListener('input', (e) => {
+                const endValue = parseInt(e.target.value);
+                if (endValue <= this.timeRangeStart) {
+                    this.timeRangeEnd = this.timeRangeStart + 1;
+                    timeRangeEnd.value = this.timeRangeEnd;
+                } else {
+                    this.timeRangeEnd = endValue;
+                }
+                this.updateRangeHighlight();
+                this.updateTimeRangeLabel();
+                this.updatePriceChart();
+            });
+            
+            // 初始化范围高亮
+            this.updateRangeHighlight();
         }
 
         // 数据开关
@@ -107,13 +133,23 @@ class CoinankApp {
         });
     }
 
+    updateRangeHighlight() {
+        const highlight = document.getElementById('rangeHighlight');
+        if (highlight) {
+            const left = this.timeRangeStart + '%';
+            const width = (this.timeRangeEnd - this.timeRangeStart) + '%';
+            highlight.style.left = left;
+            highlight.style.width = width;
+        }
+    }
+
     updateTimeRangeLabel() {
         const label = document.getElementById('timeRangeLabel');
         if (label) {
-            if (this.timeRangePercent === 100) {
+            if (this.timeRangeStart === 0 && this.timeRangeEnd === 100) {
                 label.textContent = '显示全部';
             } else {
-                label.textContent = `显示最近 ${this.timeRangePercent}% 数据`;
+                label.textContent = `显示 ${this.timeRangeStart}%-${this.timeRangeEnd}%`;
             }
         }
     }
@@ -300,20 +336,19 @@ class CoinankApp {
             return;
         }
         
-        // 根据时间范围过滤数据，确保时间从旧到新排序
+        // 根据双端时间范围过滤数据，确保时间从旧到新排序
         const sortedPriceData = priceData.sort((a, b) => new Date(a.time) - new Date(b.time));
         const totalDataPoints = sortedPriceData.length;
-        const startIndex = Math.max(0, totalDataPoints - Math.ceil(totalDataPoints * this.timeRangePercent / 100));
-        const filteredPriceData = sortedPriceData.slice(startIndex);
+        const startIndex = Math.floor(totalDataPoints * this.timeRangeStart / 100);
+        const endIndex = Math.ceil(totalDataPoints * this.timeRangeEnd / 100);
+        const filteredPriceData = sortedPriceData.slice(startIndex, endIndex);
         
-        // 准备价格数据
+        // 准备价格数据 - 按月精度显示
         const labels = filteredPriceData.map(item => {
             const date = new Date(item.time);
             return date.toLocaleDateString('zh-CN', { 
-                month: '2-digit', 
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit'
+                year: 'numeric',
+                month: '2-digit'
             });
         });
         
@@ -430,18 +465,20 @@ class CoinankApp {
                         },
                         pan: {
                             enabled: true,
-                            mode: 'x',
-                            modifierKey: 'ctrl'
+                            mode: 'x'
                         },
                         zoom: {
                             wheel: {
                                 enabled: true,
-                                speed: 0.1
+                                speed: 0.2,
+                                modifierKey: null
                             },
                             pinch: {
                                 enabled: true
                             },
-                            mode: 'x'
+                            mode: 'x',
+                            sensitivity: 3,
+                            acceleration: 1.2
                         }
                     }
                 },
@@ -454,7 +491,13 @@ class CoinankApp {
                         },
                         ticks: {
                             color: '#999',
-                            maxTicksLimit: 8
+                            maxTicksLimit: 12,
+                            callback: function(value, index, values) {
+                                // 自定义时间轴显示格式
+                                const ctx = this.chart.ctx;
+                                const label = this.getLabelForValue(value);
+                                return label;
+                            }
                         }
                     },
                     y: {
