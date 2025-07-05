@@ -2,7 +2,11 @@
 python -m venv venv
 
 第二步：激活虚拟环境（在 PowerShell 中）
+win:
 .\venv\Scripts\Activate.ps1
+
+linux:
+source venv/bin/activate
 
 第三步：安装依赖（如果有）
 pip install -r requirements.txt

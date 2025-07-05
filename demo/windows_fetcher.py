@@ -27,13 +27,13 @@ def check_dependencies():
         missing_deps.append("PySocks")
     
     if missing_deps:
-        print("⚠️  检测到缺少以下依赖库:")
+        print("检测到缺少以下依赖库:")
         for dep in missing_deps:
             print(f"   - {dep}")
-        print("\n🔧 快速安装命令:")
+        print("\n快速安装命令:")
         print("   pip install PySocks")
         print("   或者: pip install -r requirements.txt")
-        print("\n💡 PySocks库用于支持SOCKS5代理，如果不需要代理可以忽略此警告")
+        print("\nPySocks库用于支持SOCKS5代理，如果不需要代理可以忽略此警告")
         return False
     
     return True
@@ -76,56 +76,67 @@ class CoinankWindowsFetcher:
             import socks
             import socket
             
-            # 设置SOCKS5代理
-            socks.set_default_proxy(socks.SOCKS5, host, port)
-            socket.socket = socks.socksocket
-            
-            print(f"✓ 已配置SOCKS5代理: {host}:{port}")
-            return True
+            # 测试代理连接
+            try:
+                # 创建测试socket
+                test_sock = socks.socksocket()
+                test_sock.set_proxy(socks.SOCKS5, host, port)
+                test_sock.settimeout(5)
+                test_sock.connect(('www.google.com', 80))
+                test_sock.close()
+                
+                # 如果测试成功，设置全局代理
+                socks.set_default_proxy(socks.SOCKS5, host, port)
+                socket.socket = socks.socksocket
+                
+                print(f"已配置SOCKS5代理: {host}:{port}")
+                return True
+                
+            except Exception as proxy_error:
+                print(f"SOCKS5代理连接测试失败: {proxy_error}")
+                # 回退到HTTP代理测试
+                return self.try_http_proxy(host, port)
             
         except ImportError:
-            print("⚠️  未安装PySocks库，无法使用SOCKS5代理")
-            print("🔧 解决方案：")
-            print("   1. 安装PySocks: pip install PySocks")
-            print("   2. 或者禁用代理 (将main函数中的use_proxy改为False)")
-            print("   3. 或者使用HTTP代理端口 (如果你的VPN支持HTTP代理)")
+            print("未安装PySocks库，尝试HTTP代理...")
+            return self.try_http_proxy(host, port)
             
-            # 询问用户是否要尝试HTTP代理
-            try:
-                # 尝试测试HTTP代理是否可用
-                import requests
-                test_session = requests.Session()
-                test_session.proxies = {
+        except Exception as e:
+            print(f"代理配置失败: {e}")
+            print("将使用直连模式")
+            return False
+    
+    def try_http_proxy(self, host, port):
+        """尝试HTTP代理"""
+        try:
+            import requests
+            test_session = requests.Session()
+            test_session.proxies = {
+                'http': f'http://{host}:{port}',
+                'https': f'http://{host}:{port}'
+            }
+            
+            # 快速测试代理连接
+            test_response = test_session.get('http://httpbin.org/ip', timeout=5)
+            if test_response.status_code == 200:
+                print(f"检测到HTTP代理可用，使用HTTP代理: {host}:{port}")
+                self.session.proxies = {
                     'http': f'http://{host}:{port}',
                     'https': f'http://{host}:{port}'
                 }
+                return True
+            else:
+                print("HTTP代理测试失败")
                 
-                # 快速测试代理连接
-                test_response = test_session.get('http://httpbin.org/ip', timeout=5)
-                if test_response.status_code == 200:
-                    print(f"✓ 检测到HTTP代理可用，使用HTTP代理: {host}:{port}")
-                    self.session.proxies = {
-                        'http': f'http://{host}:{port}',
-                        'https': f'http://{host}:{port}'
-                    }
-                    return True
-                else:
-                    print("✗ HTTP代理测试失败")
-                    
-            except Exception as e:
-                print(f"✗ HTTP代理测试异常: {e}")
-            
-            print("🚨 代理配置失败，将使用直连模式")
-            print("💡 如果需要代理访问，请检查以下设置：")
-            print("   - VPN是否正常运行")
-            print("   - 代理端口是否正确")
-            print("   - 防火墙是否阻止连接")
-            return False
-            
         except Exception as e:
-            print(f"⚠️  代理配置失败: {e}")
-            print("将使用直连模式")
-            return False
+            print(f"HTTP代理测试异常: {e}")
+        
+        print("代理配置失败，将使用直连模式")
+        print("如果需要代理访问，请检查以下设置：")
+        print("   - VPN是否正常运行")
+        print("   - 代理端口是否正确")
+        print("   - 防火墙是否阻止连接")
+        return False
     
     def test_connection(self):
         """测试网络连接"""
@@ -135,17 +146,17 @@ class CoinankWindowsFetcher:
             # 测试访问主站
             response = self.session.get(self.main_url, timeout=10)
             if response.status_code == 200:
-                print("✓ 网络连接正常")
+                print("网络连接正常")
                 return True
             else:
-                print(f"✗ 连接失败，状态码: {response.status_code}")
+                print(f"连接失败，状态码: {response.status_code}")
                 return False
         except Exception as e:
-            print(f"✗ 网络连接错误: {e}")
+            print(f"网络连接错误: {e}")
             
             # 如果是代理错误，尝试使用完全独立的会话
             if "ProxyError" in str(e) or "proxy" in str(e).lower():
-                print("🔧 检测到代理错误，尝试使用无代理连接...")
+                print("检测到代理错误，尝试使用无代理连接...")
                 return self.test_direct_connection()
             
             return False
@@ -154,7 +165,7 @@ class CoinankWindowsFetcher:
         """测试直连模式"""
         try:
             # 首先尝试使用urllib来避免系统级代理设置
-            print("🔧 尝试使用urllib进行原始连接...")
+            print("尝试使用urllib进行原始连接...")
             import urllib.request
             import urllib.error
             
@@ -173,7 +184,7 @@ class CoinankWindowsFetcher:
             # 尝试连接
             with opener.open(req, timeout=10) as response:
                 if response.getcode() == 200:
-                    print("✓ urllib直连成功！创建新的requests会话...")
+                    print("urllib直连成功！创建新的requests会话...")
                     
                     # 现在创建一个新的requests会话
                     import requests
@@ -186,23 +197,23 @@ class CoinankWindowsFetcher:
                     # 再次测试requests会话
                     response = direct_session.get(self.main_url, timeout=10)
                     if response.status_code == 200:
-                        print("✓ requests会话也成功，切换到无代理连接")
+                        print("requests会话也成功，切换到无代理连接")
                         self.session = direct_session
                         return True
                     else:
-                        print(f"✗ requests会话失败，状态码: {response.status_code}")
+                        print(f"requests会话失败，状态码: {response.status_code}")
                         return False
                 else:
-                    print(f"✗ urllib连接失败，状态码: {response.getcode()}")
+                    print(f"urllib连接失败，状态码: {response.getcode()}")
                     return False
                     
         except urllib.error.URLError as e:
-            print(f"✗ urllib连接错误: {e}")
+            print(f"urllib连接错误: {e}")
         except Exception as e:
-            print(f"✗ 直连模式异常: {e}")
+            print(f"直连模式异常: {e}")
             
         # 如果所有方法都失败，提供详细的系统诊断
-        print("🚨 所有连接方法都失败，可能的系统级问题:")
+        print("所有连接方法都失败，可能的系统级问题:")
         print("   1. 检查系统代理设置 (Windows设置 → 网络和Internet → 代理)")
         print("   2. 检查是否有全局代理软件在运行")
         print("   3. 检查防火墙是否阻止Python网络访问")
@@ -229,19 +240,19 @@ class CoinankWindowsFetcher:
         
         try:
             resp = self.session.get(self.main_url, headers=main_headers, timeout=15)
-            print(f"✓ 主站响应: {resp.status_code}")
+            print(f"主站响应: {resp.status_code}")
             
             if resp.status_code == 200:
                 cookies_count = len(self.session.cookies)
-                print(f"✓ 获取到 {cookies_count} 个Cookie")
+                print(f"获取到 {cookies_count} 个Cookie")
                 time.sleep(1)  # 稍作等待
                 return True
             else:
-                print(f"✗ 主站访问失败: {resp.status_code}")
+                print(f"主站访问失败: {resp.status_code}")
                 return False
                 
         except Exception as e:
-            print(f"✗ 建立会话失败: {e}")
+            print(f"建立会话失败: {e}")
             return False
     
     def get_api_headers(self):
@@ -286,22 +297,22 @@ class CoinankWindowsFetcher:
                     if data.get('success'):
                         data_count = len(data.get('data', []) if isinstance(data.get('data'), list) 
                                        else data.get('data', {}).get('tss', []))
-                        print(f"✓ {data_type}数据获取成功 ({data_count} 项)")
+                        print(f"{data_type}数据获取成功 ({data_count} 项)")
                         return data
                     else:
-                        print(f"✗ {data_type}数据API错误: {data.get('msg', '未知错误')}")
+                        print(f"{data_type}数据API错误: {data.get('msg', '未知错误')}")
                 else:
-                    print(f"✗ {data_type}数据HTTP错误: {response.status_code}")
+                    print(f"{data_type}数据HTTP错误: {response.status_code}")
                     
             except Exception as e:
-                print(f"✗ {data_type}数据请求异常 (尝试{attempt+1}): {e}")
+                print(f"{data_type}数据请求异常 (尝试{attempt+1}): {e}")
                 
             if attempt < max_retries - 1:
                 wait_time = (attempt + 1) * 2
                 print(f"等待 {wait_time} 秒后重试...")
                 time.sleep(wait_time)
         
-        print(f"✗ {data_type}数据获取失败，已尝试 {max_retries} 次")
+        print(f"{data_type}数据获取失败，已尝试 {max_retries} 次")
         return None
     
     def fetch_chart_data(self, base_coin="PEPE", interval="1d", data_type="USD"):
@@ -333,7 +344,7 @@ class CoinankWindowsFetcher:
         prices = data.get('prices', [])
         
         if not timestamps or not prices:
-            print("⚠️  价格数据为空")
+            print("价格数据为空")
             return None
         
         # 数据处理
@@ -394,7 +405,7 @@ class CoinankWindowsFetcher:
         data_values = data.get('dataValues', {})
         
         if not timestamps or not data_values:
-            print("⚠️  持仓量数据为空")
+            print("持仓量数据为空")
             return None
         
         # 找出有效交易所
@@ -404,7 +415,7 @@ class CoinankWindowsFetcher:
                 valid_exchanges.append(exchange)
         
         if not valid_exchanges:
-            print("⚠️  没有有效的持仓量数据")
+            print("没有有效的持仓量数据")
             return None
         
         # 创建图表
@@ -442,7 +453,7 @@ class CoinankWindowsFetcher:
                 plotted_count += 1
         
         if plotted_count == 0:
-            print("⚠️  没有足够的数据绘制持仓量图表")
+            print("没有足够的数据绘制持仓量图表")
             plt.close(fig)
             return None
         
@@ -468,14 +479,14 @@ class CoinankWindowsFetcher:
     def create_market_dashboard(self, ticker_data, spot_data, token):
         """创建市场仪表板"""
         if not ticker_data or not spot_data:
-            print("⚠️  缺少市场数据")
+            print("缺少市场数据")
             return None
         
         ticker_list = ticker_data.get('data', [])
         spot_list = spot_data.get('data', [])
         
         if not ticker_list or not spot_list:
-            print("⚠️  市场数据为空")
+            print("市场数据为空")
             return None
         
         # 创建子图
@@ -598,9 +609,9 @@ class CoinankWindowsFetcher:
                     fig.savefig(filepath, dpi=300, bbox_inches='tight', 
                                facecolor='white', edgecolor='none')
                     saved_files.append(filepath)
-                    print(f"✓ 图表已保存: {filepath}")
+                    print(f"图表已保存: {filepath}")
                 except Exception as e:
-                    print(f"✗ 保存图表失败 {filename}: {e}")
+                    print(f"保存图表失败 {filename}: {e}")
                 finally:
                     plt.close(fig)
         
@@ -658,7 +669,7 @@ class CoinankWindowsFetcher:
     
     def analyze_token(self, token="PEPE"):
         """完整分析流程"""
-        print(f"\n🚀 开始分析 {token.upper()}")
+        print(f"\n开始分析 {token.upper()}")
         print("=" * 60)
         
         # 1. 网络测试
@@ -670,7 +681,7 @@ class CoinankWindowsFetcher:
             return None
         
         # 3. 获取数据
-        print(f"\n📡 正在获取 {token} 的实时数据...")
+        print(f"\n正在获取 {token} 的实时数据...")
         
         chart_data = self.fetch_chart_data(token)
         time.sleep(1)
@@ -682,14 +693,14 @@ class CoinankWindowsFetcher:
         
         # 4. 数据验证
         success_count = sum([1 for data in [chart_data, ticker_data, spot_data] if data])
-        print(f"\n📊 数据获取结果: {success_count}/3 成功")
+        print(f"\n数据获取结果: {success_count}/3 成功")
         
         if success_count == 0:
-            print("❌ 未能获取到任何数据，请检查网络或代理设置")
+            print("未能获取到任何数据，请检查网络或代理设置")
             return None
         
         # 5. 生成图表
-        print(f"\n🎨 正在生成图表...")
+        print(f"\n正在生成图表...")
         charts = {}
         
         if chart_data:
@@ -710,7 +721,7 @@ class CoinankWindowsFetcher:
             
             return saved_files
         else:
-            print("❌ 未能生成任何图表")
+            print("未能生成任何图表")
             return None
 
     def clear_all_proxy_settings(self):
@@ -732,31 +743,31 @@ class CoinankWindowsFetcher:
                 import socks
                 # 重置socket为默认设置
                 socket.socket = socket._socket.socket
-                print("✓ 已清理所有代理设置")
+                print("已清理所有代理设置")
             except:
                 # 如果没有socks模块或者设置失败，忽略
                 pass
                 
         except Exception as e:
-            print(f"⚠️  清理代理设置时出现异常: {e}")
+            print(f"清理代理设置时出现异常: {e}")
             # 创建新的session以确保清理
             self.session = requests.Session()
 
 
 def main():
     """主函数"""
-    print("🌟 Coinank Windows版数据获取器")
-    print("💡 支持SOCKS5代理，适配Windows环境")
+    print("Coinank Windows版数据获取器")
+    print("支持SOCKS5代理，适配Windows环境")
     print("=" * 60)
     
     # 检查依赖
-    print("🔍 检查依赖库...")
+    print("检查依赖库...")
     deps_ok = check_dependencies()
     if not deps_ok:
         print("\n" + "=" * 40)
     
     # 代理配置选项
-    print("\n🔧 代理配置选项:")
+    print("\n代理配置选项:")
     print("1. 启用SOCKS5代理 (推荐) - 需要安装PySocks")
     print("2. 启用HTTP代理 - 适用于部分VPN")
     print("3. 禁用代理 - 直连模式")
@@ -768,7 +779,7 @@ def main():
         'http': [8080, 7890, 10809, 1087]
     }
     
-    print(f"\n🌐 常用代理端口:")
+    print(f"\n常用代理端口:")
     print(f"   SOCKS5: {', '.join(map(str, common_ports['socks5']))}")
     print(f"   HTTP: {', '.join(map(str, common_ports['http']))}")
     
@@ -777,20 +788,20 @@ def main():
     proxy_host = '127.0.0.1'  # 代理地址
     proxy_port = 10808  # 代理端口
     
-    print(f"\n📋 当前配置:")
+    print(f"\n当前配置:")
     print(f"   代理状态: {'启用' if use_proxy else '禁用'}")
     if use_proxy:
         print(f"   代理地址: {proxy_host}:{proxy_port}")
         print(f"   说明: 如果连接失败，请尝试修改 proxy_port 为你的实际代理端口")
     
     # 创建获取器
-    print(f"\n🚀 正在初始化获取器...")
+    print(f"\n正在初始化获取器...")
     fetcher = CoinankWindowsFetcher(use_proxy, proxy_host, proxy_port)
     
     # 检查代理状态
     if use_proxy and not fetcher.proxy_configured:
-        print("\n❌ 代理配置失败")
-        print("🔧 解决方案:")
+        print("\n代理配置失败")
+        print("解决方案:")
         print("   1. 安装PySocks库: pip install PySocks")
         print("   2. 检查VPN是否运行并确认代理端口")
         print("   3. 或者修改代码中的 use_proxy = False 使用直连模式")
@@ -798,36 +809,36 @@ def main():
         print(f"   5. 常用端口: {', '.join(map(str, common_ports['socks5'] + common_ports['http']))}")
         
         # 询问是否继续
-        print("\n⚠️  是否继续使用直连模式？这可能无法访问coinank.com")
+        print("\n是否继续使用直连模式？这可能无法访问coinank.com")
         print("程序将在5秒后自动继续...")
         import time
         time.sleep(5)
     
     # 支持的代币
     supported_tokens = ["PEPE", "BTC", "ETH", "DOGE", "SOL", "SHIB", "WIF"]
-    print(f"\n🪙 支持的代币: {', '.join(supported_tokens)}")
+    print(f"\n支持的代币: {', '.join(supported_tokens)}")
     
     # 分析代币
     token = "PEPE"
-    print(f"\n🎯 开始分析 {token}")
+    print(f"\n开始分析 {token}")
     result = fetcher.analyze_token(token)
     
     if result:
-        print(f"\n✅ 分析完成! 共生成 {len(result)} 个图表")
-        print("📁 图表文件:")
+        print(f"\n分析完成! 共生成 {len(result)} 个图表")
+        print("图表文件:")
         for file_path in result:
-            print(f"   📈 {os.path.basename(file_path)}")
+            print(f"   {os.path.basename(file_path)}")
         
         # 打开文件夹
         import subprocess
         try:
             subprocess.run(['explorer', fetcher.output_dir], check=True)
-            print(f"\n📂 已打开输出文件夹: {fetcher.output_dir}")
+            print(f"\n已打开输出文件夹: {fetcher.output_dir}")
         except:
-            print(f"\n📂 图表保存在: {fetcher.output_dir}")
+            print(f"\n图表保存在: {fetcher.output_dir}")
     else:
-        print(f"\n❌ 分析失败")
-        print(f"\n🔧 完整故障排除指南:")
+        print(f"\n分析失败")
+        print(f"\n完整故障排除指南:")
         print(f"   1. 【代理问题】")
         print(f"      - 安装PySocks: pip install PySocks")
         print(f"      - 检查VPN状态和代理端口")
