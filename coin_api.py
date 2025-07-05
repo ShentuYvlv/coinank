@@ -294,6 +294,37 @@ class CoinankAPI:
         params = {'baseCoin': base_coin}
         return self.fetch_data_with_retry(url, params, "现货")
     
+    def fetch_volume_chart(self, base_coin="PEPE", exchange_name="ALL", interval="1d"):
+        """获取24H成交额图表数据"""
+        url = f"{self.base_url}/api/volume24h/chart"
+        params = {
+            "baseCoin": base_coin,
+            "exchangeName": exchange_name,
+            "interval": interval
+        }
+        return self.fetch_data_with_retry(url, params, "24H成交额")
+    
+    def fetch_open_interest_chart(self, base_coin="PEPE", interval="1d", data_type="USD"):
+        """获取合约持仓量图表数据"""
+        url = f"{self.base_url}/api/openInterest/chart"
+        params = {
+            "baseCoin": base_coin,
+            "interval": interval,
+            "type": data_type
+        }
+        return self.fetch_data_with_retry(url, params, "合约持仓量")
+    
+    def fetch_long_short_flow(self, base_coin="PEPE", exchange_name="", interval="5m", limit=500):
+        """获取净流入数据"""
+        url = f"{self.base_url}/api/longshort/buySell"
+        params = {
+            "exchangeName": exchange_name,
+            "interval": interval,
+            "baseCoin": base_coin,
+            "limit": limit
+        }
+        return self.fetch_data_with_retry(url, params, "净流入")
+    
     def get_complete_token_data(self, token="PEPE"):
         """获取完整的代币数据"""
         print(f"📊 正在获取 {token} 完整数据...")
@@ -309,10 +340,15 @@ class CoinankAPI:
         ticker_data = self.fetch_ticker_data(token)
         time.sleep(1)
         spot_data = self.fetch_spot_data(token)
+        time.sleep(1)
+        oi_chart_data = self.fetch_open_interest_chart(token)
+        time.sleep(1)
+        volume_chart_data = self.fetch_volume_chart(token)
         
         # 验证数据
-        success_count = sum([1 for data in [chart_data, ticker_data, spot_data] if data])
-        print(f"📈 数据获取结果: {success_count}/3 成功")
+        all_data = [chart_data, ticker_data, spot_data, oi_chart_data, volume_chart_data]
+        success_count = sum([1 for data in all_data if data])
+        print(f"📈 数据获取结果: {success_count}/5 成功")
         
         if success_count == 0:
             print("❌ 未能获取到任何数据")
@@ -322,6 +358,8 @@ class CoinankAPI:
             'chart_data': chart_data,
             'ticker_data': ticker_data,
             'spot_data': spot_data,
+            'oi_chart_data': oi_chart_data,
+            'volume_chart_data': volume_chart_data,
             'token': token,
             'fetch_time': datetime.now().isoformat()
         }

@@ -329,7 +329,7 @@ class CoinankApp {
         }
         
         const priceData = this.data.price_data || [];
-        const oiData = this.data.oi_data || [];
+        const oiTimeSeriesData = this.data.oi_time_series || [];
         
         if (priceData.length === 0) {
             this.showEmptyChart(ctx, '暂无价格数据');
@@ -354,20 +354,23 @@ class CoinankApp {
         
         const prices = filteredPriceData.map(item => item.price);
         
-        // 准备持仓量数据（聚合所有交易所的持仓量）
+        // 准备持仓量时序数据（匹配价格数据的时间点）
         const oiValues = filteredPriceData.map(item => {
             const timestamp = new Date(item.time).getTime();
-            // 找到对应时间的持仓量数据
-            let totalOI = 0;
-            oiData.forEach(exchange => {
-                if (exchange.data) {
-                    const oiItem = exchange.data.find(d => Math.abs(new Date(d.time).getTime() - timestamp) < 3600000); // 1小时内
-                    if (oiItem) {
-                        totalOI += oiItem.value || 0;
-                    }
+            // 从持仓量时序数据中找到最接近的时间点
+            let closestOI = null;
+            let minTimeDiff = Infinity;
+            
+            oiTimeSeriesData.forEach(oiItem => {
+                const oiTimestamp = new Date(oiItem.time).getTime();
+                const timeDiff = Math.abs(timestamp - oiTimestamp);
+                if (timeDiff < minTimeDiff) {
+                    minTimeDiff = timeDiff;
+                    closestOI = oiItem.value;
                 }
             });
-            return totalOI;
+            
+            return closestOI || 0;
         });
         
         // 创建渐变效果
@@ -470,15 +473,18 @@ class CoinankApp {
                         zoom: {
                             wheel: {
                                 enabled: true,
-                                speed: 0.2,
-                                modifierKey: null
+                                speed: 0.2
                             },
                             pinch: {
                                 enabled: true
                             },
                             mode: 'x',
-                            sensitivity: 3,
-                            acceleration: 1.2
+                            drag: {
+                                enabled: true,
+                                backgroundColor: 'rgba(0,123,255,0.1)',
+                                borderColor: 'rgba(0,123,255,0.3)',
+                                borderWidth: 1
+                            }
                         }
                     }
                 },

@@ -121,7 +121,9 @@ def get_token_data(token):
         processed_data = process_data_for_web(
             raw_data['chart_data'], 
             raw_data['ticker_data'], 
-            raw_data['spot_data'], 
+            raw_data['spot_data'],
+            raw_data.get('oi_chart_data'),
+            raw_data.get('volume_chart_data'),
             token
         )
         
@@ -135,7 +137,7 @@ def get_token_data(token):
         print(f"❌ 获取 {token} 数据失败: {e}")
         return None
 
-def process_data_for_web(chart_data, ticker_data, spot_data, token):
+def process_data_for_web(chart_data, ticker_data, spot_data, oi_chart_data, volume_chart_data, token):
     """处理数据用于Web展示"""
     # 提取价格数据
     price_data = []
@@ -152,29 +154,48 @@ def process_data_for_web(chart_data, ticker_data, spot_data, token):
                     'price': prices[i]
                 })
     
-    # 提取持仓量数据
+    # 提取持仓量数据 - 使用新的持仓量API数据
     print(f"[调试] 开始处理持仓量数据...")
     oi_data = []
+    oi_time_series = []  # 用于在价格图表上显示的时序数据
     
-    # 先尝试从图表数据获取持仓量
-    if chart_data:
-        data = chart_data.get('data', {})
-        data_values = data.get('dataValues', {})
-        print(f"[调试] 图表数据中的dataValues: {list(data_values.keys()) if data_values else 'None'}")
+    # 优先使用持仓量图表API数据
+    if oi_chart_data:
+        print(f"[调试] 使用持仓量图表API数据")
+        data = oi_chart_data.get('data', {})
         
-        for exchange, values in data_values.items():
-            if values and any(v is not None and v > 0 for v in values):
-                total_oi = sum(v for v in values if v is not None and v > 0)
-                print(f"[调试] 图表持仓量 - {exchange}: {total_oi}")
+        # 处理时序数据（用于价格图表）
+        timestamps = data.get('tss', [])
+        data_values = data.get('dataValues', {})
+        
+        if timestamps and data_values:
+            # 为每个时间点计算总持仓量
+            for i, timestamp in enumerate(timestamps):
+                total_oi = 0
+                for exchange, values in data_values.items():
+                    if i < len(values) and values[i] is not None:
+                        total_oi += values[i]
+                
                 if total_oi > 0:
-                    oi_data.append({
-                        'exchange': exchange,
+                    oi_time_series.append({
+                        'time': timestamp,
                         'value': total_oi
                     })
+        
+        # 处理分布数据（用于饼图）
+        for exchange, values in data_values.items():
+            if values:
+                total_value = sum(v for v in values if v is not None and v > 0)
+                if total_value > 0:
+                    oi_data.append({
+                        'exchange': exchange,
+                        'value': total_value
+                    })
+                    print(f"[调试] 持仓量API - {exchange}: {total_value}")
     
-    # 如果图表数据没有持仓量，从期货数据获取
+    # 如果持仓量API数据为空，回退到期货数据
     if not oi_data and ticker_data:
-        print(f"[调试] 图表数据无持仓量，尝试从期货数据获取...")
+        print(f"[调试] 持仓量API数据为空，使用期货数据...")
         ticker_list = ticker_data.get('data', [])
         for ticker in ticker_list:
             oi_usd = ticker.get('oiUSD', 0)
@@ -186,7 +207,8 @@ def process_data_for_web(chart_data, ticker_data, spot_data, token):
                 })
                 print(f"[调试] 期货持仓量 - {exchange_name}: {oi_usd}")
     
-    print(f"[调试] 最终持仓量数据数量: {len(oi_data)}")
+    print(f"[调试] 最终持仓量分布数据数量: {len(oi_data)}")
+    print(f"[调试] 持仓量时序数据数量: {len(oi_time_series)}")
     
     # 提取价格数据用于统计
     prices = [item['price'] for item in price_data if item['price'] > 0]
@@ -256,6 +278,7 @@ def process_data_for_web(chart_data, ticker_data, spot_data, token):
         'token': token,
         'price_data': price_data,
         'oi_data': oi_data,
+        'oi_time_series': oi_time_series,
         'futures': futures_data,
         'spot': spot_data_list,
         'stats': stats,
