@@ -11,9 +11,54 @@
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     
-    <!-- Chart.js with zoom plugin -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+    <!-- Chart.js with zoom plugin - 使用兼容版本 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.2.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <script>
+        // 确保zoom插件正确注册
+        window.addEventListener('load', function() {
+            console.log('🔍 检查Chart.js和zoom插件...');
+            console.log('Chart对象:', typeof Chart);
+            console.log('window.ChartZoom:', typeof window.ChartZoom);
+            console.log('window对象中的zoom相关:', Object.keys(window).filter(key => key.toLowerCase().includes('zoom')));
+
+            if (typeof Chart !== 'undefined') {
+                console.log('📊 Chart.js版本:', Chart.version);
+                console.log('📊 Chart.registry:', Chart.registry);
+                console.log('📊 已注册的插件:', Chart.registry.plugins.items);
+
+                // Chart.js 3.x版本的插件注册方式
+                try {
+                    // Chart.js 3.x版本插件通常自动注册
+                    if (typeof Chart.register === 'function') {
+                        // 检查zoom插件是否可用
+                        if (typeof window.ChartZoom !== 'undefined') {
+                            Chart.register(window.ChartZoom);
+                            console.log('✅ Chart.js 3.x zoom插件已注册 (ChartZoom)');
+                        } else if (typeof window.chartjsPluginZoom !== 'undefined') {
+                            Chart.register(window.chartjsPluginZoom);
+                            console.log('✅ Chart.js 3.x zoom插件已注册 (chartjsPluginZoom)');
+                        } else {
+                            console.log('ℹ️ Chart.js 3.x - zoom插件可能已自动注册');
+                        }
+                    } else {
+                        console.log('ℹ️ Chart.js 3.x - 使用旧版本注册方式');
+                    }
+
+                    // 检查插件是否可用
+                    setTimeout(() => {
+                        console.log('🔍 Chart.plugins:', Chart.plugins);
+                        console.log('🔍 检查zoom插件是否在Chart.plugins中');
+                    }, 100);
+
+                } catch (error) {
+                    console.error('❌ zoom插件注册过程中出错:', error);
+                }
+            } else {
+                console.error('❌ Chart.js未加载');
+            }
+        });
+    </script>
     
     <!-- Socket.IO -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>

@@ -34,13 +34,30 @@ class CoinankApp {
 
     async init() {
         console.log('🚀 Coinank应用初始化...');
-        
+
+        // 注册Chart.js zoom插件
+        if (typeof Chart !== 'undefined') {
+            // 尝试不同的插件引用方式
+            if (typeof window.ChartZoom !== 'undefined') {
+                Chart.register(window.ChartZoom);
+                console.log('✅ Chart.js zoom插件已注册 (ChartZoom)');
+            } else if (typeof window.chartjsPluginZoom !== 'undefined') {
+                Chart.register(window.chartjsPluginZoom);
+                console.log('✅ Chart.js zoom插件已注册 (chartjsPluginZoom)');
+            } else {
+                console.warn('⚠️ Chart.js zoom插件未找到，尝试自动注册');
+                // 插件可能已经自动注册了
+            }
+        } else {
+            console.warn('⚠️ Chart.js未找到');
+        }
+
         // 绑定事件
         this.bindEvents();
-        
+
         // 连接WebSocket（连接成功后会自动加载数据）
         this.connectWebSocket();
-        
+
         console.log('✅ Coinank应用初始化完成');
     }
 
@@ -578,6 +595,11 @@ class CoinankApp {
             });
         }
         
+        // 调试：检查zoom插件是否可用
+        console.log('🔍 Chart.js版本:', Chart.version);
+        console.log('🔍 可用插件:', Chart.registry.plugins.items);
+        console.log('🔍 zoom插件是否注册:', Chart.registry.plugins.get('zoom'));
+
         // Chart.js配置，模拟coinank样式
         this.charts.priceChart = new Chart(ctx, {
             type: 'line',
@@ -636,7 +658,17 @@ class CoinankApp {
                     zoom: {
                         pan: {
                             enabled: true,
-                            mode: 'x'
+                            mode: 'x',
+                            onPanStart: function(chart, event, point) {
+                                console.log('🖱️ 价格图表开始拖动:', event, point);
+                                return true;
+                            },
+                            onPan: function(chart) {
+                                console.log('🖱️ 价格图表拖动中...');
+                            },
+                            onPanComplete: function(chart) {
+                                console.log('🖱️ 价格图表拖动完成');
+                            }
                         },
                         zoom: {
                             wheel: {
@@ -644,6 +676,9 @@ class CoinankApp {
                             },
                             pinch: {
                                 enabled: true
+                            },
+                            drag: {
+                                enabled: false  // 禁用拖动缩放，只保留拖动平移
                             },
                             mode: 'x'
                         }
@@ -706,10 +741,60 @@ class CoinankApp {
                         hoverRadius: 8
                     }
                 }
-            },
-            plugins: [{
-                id: 'zoom'
-            }]
+            }
+        });
+
+        // 添加手动拖动事件监听作为备用方案
+        this.addManualPanSupport(canvas, this.charts.priceChart);
+    }
+
+    // 手动实现拖动功能作为备用方案
+    addManualPanSupport(canvas, chart) {
+        let isDragging = false;
+        let lastX = 0;
+
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            lastX = e.clientX;
+            canvas.style.cursor = 'grabbing';
+            console.log('🖱️ 手动拖动开始');
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            const deltaX = e.clientX - lastX;
+            lastX = e.clientX;
+
+            // 获取图表的x轴
+            const xScale = chart.scales.x;
+            if (xScale) {
+                const pixelDelta = deltaX;
+                const dataDelta = xScale.getValueForPixel(xScale.left) - xScale.getValueForPixel(xScale.left + pixelDelta);
+
+                // 更新x轴范围
+                const currentMin = xScale.min;
+                const currentMax = xScale.max;
+                const newMin = currentMin + dataDelta;
+                const newMax = currentMax + dataDelta;
+
+                xScale.options.min = newMin;
+                xScale.options.max = newMax;
+
+                chart.update('none');
+                // console.log('🖱️ 手动拖动中...', deltaX);
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+            canvas.style.cursor = 'default';
+            // console.log('🖱️ 手动拖动结束');
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            isDragging = false;
+            canvas.style.cursor = 'default';
         });
     }
 
@@ -929,6 +1014,9 @@ class CoinankApp {
                             pinch: {
                                 enabled: true
                             },
+                            drag: {
+                                enabled: false  // 禁用拖动缩放，只保留拖动平移
+                            },
                             mode: 'x'
                         }
                     }
@@ -959,6 +1047,9 @@ class CoinankApp {
                 }
             }
         });
+
+        // 添加手动拖动事件监听
+        this.addManualPanSupport(canvas, this.charts.netFlowChart);
     }
 
     updateVolumeChart() {
@@ -1056,6 +1147,9 @@ class CoinankApp {
                             pinch: {
                                 enabled: true
                             },
+                            drag: {
+                                enabled: false  // 禁用拖动缩放，只保留拖动平移
+                            },
                             mode: 'x'
                         }
                     }
@@ -1086,6 +1180,9 @@ class CoinankApp {
                 }
             }
         });
+
+        // 添加手动拖动事件监听
+        this.addManualPanSupport(canvas, this.charts.volumeChart);
     }
 
     updateTables() {
