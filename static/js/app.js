@@ -16,6 +16,18 @@ class CoinankApp {
         this.timeRangeEnd = 100; // 结束时间百分比
         this.showPrice = true;
         this.showOI = true;
+        this.isPageHidden = false;
+        this.lastHiddenTime = null;
+
+        // 净流入图表控制变量
+        this.netFlowTimeRangeStart = 0;
+        this.netFlowTimeRangeEnd = 100;
+        this.showNetFlowAll = true;
+
+        // 成交额图表控制变量
+        this.volumeTimeRangeStart = 0;
+        this.volumeTimeRangeEnd = 100;
+        this.volumeChartType = 'bar';
         
         this.init();
     }
@@ -26,11 +38,8 @@ class CoinankApp {
         // 绑定事件
         this.bindEvents();
         
-        // 连接WebSocket
+        // 连接WebSocket（连接成功后会自动加载数据）
         this.connectWebSocket();
-        
-        // 加载初始数据
-        await this.loadTokenData(this.currentToken);
         
         console.log('✅ Coinank应用初始化完成');
     }
@@ -122,13 +131,115 @@ class CoinankApp {
             });
         }
 
+        // 净流入图表重置缩放按钮
+        const resetNetFlowZoomBtn = document.getElementById('resetNetFlowZoom');
+        if (resetNetFlowZoomBtn) {
+            resetNetFlowZoomBtn.addEventListener('click', () => {
+                if (this.charts.netFlowChart) {
+                    this.charts.netFlowChart.resetZoom();
+                }
+            });
+        }
+
+        // 成交额图表重置缩放按钮
+        const resetVolumeZoomBtn = document.getElementById('resetVolumeZoom');
+        if (resetVolumeZoomBtn) {
+            resetVolumeZoomBtn.addEventListener('click', () => {
+                if (this.charts.volumeChart) {
+                    this.charts.volumeChart.resetZoom();
+                }
+            });
+        }
+
+        // 净流入图表时间范围滑块
+        const netFlowTimeRangeStart = document.getElementById('netFlowTimeRangeStart');
+        const netFlowTimeRangeEnd = document.getElementById('netFlowTimeRangeEnd');
+
+        if (netFlowTimeRangeStart && netFlowTimeRangeEnd) {
+            netFlowTimeRangeStart.addEventListener('input', (e) => {
+                const startValue = parseInt(e.target.value);
+                if (startValue >= this.netFlowTimeRangeEnd) {
+                    this.netFlowTimeRangeStart = this.netFlowTimeRangeEnd - 1;
+                    netFlowTimeRangeStart.value = this.netFlowTimeRangeStart;
+                } else {
+                    this.netFlowTimeRangeStart = startValue;
+                }
+                this.updateNetFlowRangeHighlight();
+                this.updateNetFlowTimeRangeLabel();
+                this.updateNetFlowChart();
+            });
+
+            netFlowTimeRangeEnd.addEventListener('input', (e) => {
+                const endValue = parseInt(e.target.value);
+                if (endValue <= this.netFlowTimeRangeStart) {
+                    this.netFlowTimeRangeEnd = this.netFlowTimeRangeStart + 1;
+                    netFlowTimeRangeEnd.value = this.netFlowTimeRangeEnd;
+                } else {
+                    this.netFlowTimeRangeEnd = endValue;
+                }
+                this.updateNetFlowRangeHighlight();
+                this.updateNetFlowTimeRangeLabel();
+                this.updateNetFlowChart();
+            });
+
+            // 初始化范围高亮
+            this.updateNetFlowRangeHighlight();
+            this.updateNetFlowTimeRangeLabel();
+        }
+
+        // 成交额图表时间范围滑块
+        const volumeTimeRangeStart = document.getElementById('volumeTimeRangeStart');
+        const volumeTimeRangeEnd = document.getElementById('volumeTimeRangeEnd');
+
+        if (volumeTimeRangeStart && volumeTimeRangeEnd) {
+            volumeTimeRangeStart.addEventListener('input', (e) => {
+                const startValue = parseInt(e.target.value);
+                if (startValue >= this.volumeTimeRangeEnd) {
+                    this.volumeTimeRangeStart = this.volumeTimeRangeEnd - 1;
+                    volumeTimeRangeStart.value = this.volumeTimeRangeStart;
+                } else {
+                    this.volumeTimeRangeStart = startValue;
+                }
+                this.updateVolumeRangeHighlight();
+                this.updateVolumeTimeRangeLabel();
+                this.updateVolumeChart();
+            });
+
+            volumeTimeRangeEnd.addEventListener('input', (e) => {
+                const endValue = parseInt(e.target.value);
+                if (endValue <= this.volumeTimeRangeStart) {
+                    this.volumeTimeRangeEnd = this.volumeTimeRangeStart + 1;
+                    volumeTimeRangeEnd.value = this.volumeTimeRangeEnd;
+                } else {
+                    this.volumeTimeRangeEnd = endValue;
+                }
+                this.updateVolumeRangeHighlight();
+                this.updateVolumeTimeRangeLabel();
+                this.updateVolumeChart();
+            });
+
+            // 初始化范围高亮
+            this.updateVolumeRangeHighlight();
+            this.updateVolumeTimeRangeLabel();
+        }
+
         // 页面可见性变化
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
                 console.log('📴 页面隐藏，暂停更新');
+                this.isPageHidden = true;
+                this.lastHiddenTime = Date.now();
             } else {
                 console.log('👀 页面显示，恢复更新');
-                this.refreshCurrentToken();
+                this.isPageHidden = false;
+                // 只有在页面隐藏超过5分钟才重新加载数据
+                const now = Date.now();
+                if (!this.lastHiddenTime || (now - this.lastHiddenTime) > 5 * 60 * 1000) {
+                    console.log('🔄 页面隐藏时间较长，刷新数据');
+                    this.refreshCurrentToken();
+                } else {
+                    console.log('⏭️ 页面隐藏时间较短，跳过刷新');
+                }
             }
         });
     }
@@ -154,6 +265,48 @@ class CoinankApp {
         }
     }
 
+    updateNetFlowRangeHighlight() {
+        const highlight = document.getElementById('netFlowRangeHighlight');
+        if (highlight) {
+            const left = this.netFlowTimeRangeStart + '%';
+            const width = (this.netFlowTimeRangeEnd - this.netFlowTimeRangeStart) + '%';
+            highlight.style.left = left;
+            highlight.style.width = width;
+        }
+    }
+
+    updateNetFlowTimeRangeLabel() {
+        const label = document.getElementById('netFlowTimeRangeLabel');
+        if (label) {
+            if (this.netFlowTimeRangeStart === 0 && this.netFlowTimeRangeEnd === 100) {
+                label.textContent = '显示全部';
+            } else {
+                label.textContent = `${this.netFlowTimeRangeStart}%-${this.netFlowTimeRangeEnd}%`;
+            }
+        }
+    }
+
+    updateVolumeRangeHighlight() {
+        const highlight = document.getElementById('volumeRangeHighlight');
+        if (highlight) {
+            const left = this.volumeTimeRangeStart + '%';
+            const width = (this.volumeTimeRangeEnd - this.volumeTimeRangeStart) + '%';
+            highlight.style.left = left;
+            highlight.style.width = width;
+        }
+    }
+
+    updateVolumeTimeRangeLabel() {
+        const label = document.getElementById('volumeTimeRangeLabel');
+        if (label) {
+            if (this.volumeTimeRangeStart === 0 && this.volumeTimeRangeEnd === 100) {
+                label.textContent = '显示全部';
+            } else {
+                label.textContent = `${this.volumeTimeRangeStart}%-${this.volumeTimeRangeEnd}%`;
+            }
+        }
+    }
+
     connectWebSocket() {
         console.log('🔌 连接WebSocket...');
         
@@ -163,8 +316,8 @@ class CoinankApp {
             this.socket.on('connect', () => {
                 console.log('✅ WebSocket连接成功');
                 this.updateConnectionStatus('已连接', 'success');
-                
-                // 订阅当前代币，但不重复加载数据
+
+                // 只订阅当前代币，数据会通过token_data事件推送
                 this.socket.emit('subscribe_token', { token: this.currentToken });
             });
             
@@ -182,8 +335,17 @@ class CoinankApp {
             
             this.socket.on('token_data', (data) => {
                 console.log('📈 收到代币数据:', data.token);
-                if (data.token === this.currentToken && !this.isLoading) {
-                    this.updateData(data.data);
+                if (data.token === this.currentToken) {
+                    // 如果是首次接收数据，设置为主数据
+                    if (!this.data) {
+                        console.log('✅ 设置初始数据');
+                        this.data = data.data;
+                        this.updateUI();
+                        this.updateConnectionStatus(`${data.token} 数据已加载`, 'success');
+                    } else if (!this.isLoading) {
+                        // 如果不是首次且不在加载中，则更新数据
+                        this.updateData(data.data);
+                    }
                 }
             });
             
@@ -426,6 +588,14 @@ class CoinankApp {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        left: 0,
+                        right: 0,
+                        top: 5,
+                        bottom: 5
+                    }
+                },
                 interaction: {
                     intersect: false,
                     mode: 'index'
@@ -464,45 +634,36 @@ class CoinankApp {
                         }
                     },
                     zoom: {
-                        limits: {
-                            x: {min: 0, max: 'original'},
-                            y: {min: 0, max: 'original'}
-                        },
                         pan: {
                             enabled: true,
                             mode: 'x'
                         },
                         zoom: {
                             wheel: {
-                                enabled: true,
-                                speed: 0.2
+                                enabled: true
                             },
                             pinch: {
                                 enabled: true
                             },
-                            mode: 'x',
-                            drag: {
-                                enabled: true,
-                                backgroundColor: 'rgba(0,123,255,0.1)',
-                                borderColor: 'rgba(0,123,255,0.3)',
-                                borderWidth: 1
-                            }
+                            mode: 'x'
                         }
                     }
                 },
                 scales: {
                     x: {
                         display: true,
+                        offset: false,
                         grid: {
                             color: 'rgba(255, 255, 255, 0.1)',
-                            drawBorder: false
+                            drawBorder: false,
+                            offset: false
                         },
                         ticks: {
                             color: '#999',
                             maxTicksLimit: 12,
-                            callback: function(value, index, values) {
+                            padding: 0,
+                            callback: function(value) {
                                 // 自定义时间轴显示格式
-                                const ctx = this.chart.ctx;
                                 const label = this.getLabelForValue(value);
                                 return label;
                             }
@@ -518,6 +679,7 @@ class CoinankApp {
                         },
                         ticks: {
                             color: '#999',
+                            padding: 5,
                             callback: function(value) {
                                 return '$' + value.toFixed(8);
                             }
@@ -532,6 +694,7 @@ class CoinankApp {
                         },
                         ticks: {
                             color: '#999',
+                            padding: 5,
                             callback: function(value) {
                                 return '$' + (value / 1e6).toFixed(1) + 'M';
                             }
@@ -662,10 +825,14 @@ class CoinankApp {
             return;
         }
 
-        // 按时间排序
+        // 按时间排序并应用时间范围过滤
         const sortedData = netFlowData.sort((a, b) => new Date(a.time) - new Date(b.time));
+        const totalDataPoints = sortedData.length;
+        const startIndex = Math.floor(totalDataPoints * this.netFlowTimeRangeStart / 100);
+        const endIndex = Math.ceil(totalDataPoints * this.netFlowTimeRangeEnd / 100);
+        const filteredData = sortedData.slice(startIndex, endIndex);
 
-        const labels = sortedData.map(item => {
+        const labels = filteredData.map(item => {
             const date = new Date(item.time);
             return date.toLocaleDateString('zh-CN', {
                 month: '2-digit',
@@ -674,9 +841,9 @@ class CoinankApp {
             });
         });
 
-        const netFlowValues = sortedData.map(item => item.value);
-        const buyValues = sortedData.map(item => item.buy_volume || 0);
-        const sellValues = sortedData.map(item => item.sell_volume || 0);
+        const netFlowValues = filteredData.map(item => item.value);
+        const buyValues = filteredData.map(item => item.buy_volume || 0);
+        const sellValues = filteredData.map(item => item.sell_volume || 0);
 
         // 创建渐变效果
         const gradient = ctx.createLinearGradient(0, 0, 0, 400);
@@ -720,6 +887,14 @@ class CoinankApp {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        left: 5,
+                        right: 5,
+                        top: 5,
+                        bottom: 5
+                    }
+                },
                 interaction: {
                     intersect: false,
                     mode: 'index'
@@ -740,6 +915,21 @@ class CoinankApp {
                             label: function(context) {
                                 return `${context.dataset.label}: ${context.parsed.y.toFixed(2)}`;
                             }
+                        }
+                    },
+                    zoom: {
+                        pan: {
+                            enabled: true,
+                            mode: 'x'
+                        },
+                        zoom: {
+                            wheel: {
+                                enabled: true
+                            },
+                            pinch: {
+                                enabled: true
+                            },
+                            mode: 'x'
                         }
                     }
                 },
@@ -787,10 +977,14 @@ class CoinankApp {
             return;
         }
 
-        // 按时间排序
+        // 按时间排序并应用时间范围过滤
         const sortedData = volumeData.sort((a, b) => new Date(a.time) - new Date(b.time));
+        const totalDataPoints = sortedData.length;
+        const startIndex = Math.floor(totalDataPoints * this.volumeTimeRangeStart / 100);
+        const endIndex = Math.ceil(totalDataPoints * this.volumeTimeRangeEnd / 100);
+        const filteredData = sortedData.slice(startIndex, endIndex);
 
-        const labels = sortedData.map(item => {
+        const labels = filteredData.map(item => {
             const date = new Date(item.time);
             return date.toLocaleDateString('zh-CN', {
                 month: '2-digit',
@@ -798,7 +992,7 @@ class CoinankApp {
             });
         });
 
-        const values = sortedData.map(item => item.value);
+        const values = filteredData.map(item => item.value);
 
         // 创建渐变效果
         const gradient = ctx.createLinearGradient(0, 0, 0, 400);
@@ -820,6 +1014,14 @@ class CoinankApp {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        left: 5,
+                        right: 5,
+                        top: 5,
+                        bottom: 5
+                    }
+                },
                 interaction: {
                     intersect: false,
                     mode: 'index'
@@ -840,6 +1042,21 @@ class CoinankApp {
                             label: function(context) {
                                 return `${context.dataset.label}: $${(context.parsed.y / 1e6).toFixed(2)}M`;
                             }
+                        }
+                    },
+                    zoom: {
+                        pan: {
+                            enabled: true,
+                            mode: 'x'
+                        },
+                        zoom: {
+                            wheel: {
+                                enabled: true
+                            },
+                            pinch: {
+                                enabled: true
+                            },
+                            mode: 'x'
                         }
                     }
                 },

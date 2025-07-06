@@ -479,7 +479,7 @@ main {
 
 .chart-container {
     position: relative;
-    height: 400px;
+    height: 200px;
     margin: 1rem 0;
 }
 
@@ -652,12 +652,17 @@ canvas {
 .chart-row {
     display: flex;
     align-items: stretch;
+    margin-left: -8px;
+    margin-right: -8px;
 }
 
-.chart-row .col-lg-9,
-.chart-row .col-lg-3 {
+.chart-row .col-lg-10,
+.chart-row .col-lg-2,
+.chart-row .col-lg-6 {
     display: flex;
     flex-direction: column;
+    padding-left: 8px;
+    padding-right: 8px;
 }
 
 .chart-row .chart-card {
@@ -671,17 +676,22 @@ canvas {
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 1rem;
 }
 
 /* 数据表格行高度一致性 */
 .table-row {
     display: flex;
     align-items: stretch;
+    margin-left: -8px;
+    margin-right: -8px;
 }
 
 .table-row .col-lg-6 {
     display: flex;
     flex-direction: column;
+    padding-left: 8px;
+    padding-right: 8px;
 }
 
 .table-row .card {
@@ -692,17 +702,376 @@ canvas {
 
 .table-row .card .card-body {
     flex: 1;
+    padding: 1rem;
 }
 
-/* 新增图表容器样式 */
+/* 图表容器样式优化 */
+.chart-container,
 .net-flow-chart-container,
 .volume-chart-container {
-    height: 400px;
+    height: 350px !important;
     position: relative;
+    width: 100%;
+    flex: 1;  /* 让容器填充父元素 */
 }
 
+.chart-container canvas,
 .net-flow-chart-container canvas,
 .volume-chart-container canvas {
     width: 100% !important;
     height: 100% !important;
+}
+
+/* 主容器优化 */
+main.container-fluid {
+    padding-left: 1rem;
+    padding-right: 1rem;
+    max-width: 100%;
+}
+
+/* 减少卡片间距 */
+.card {
+    margin-bottom: 0;
+}
+
+.mb-4 {
+    margin-bottom: 1rem !important;
+}
+
+/* 响应式优化 - 在大屏幕上进一步减少边距 */
+@media (min-width: 1200px) {
+    main.container-fluid {
+        padding-left: 2rem;
+        padding-right: 2rem;
+    }
+
+    .chart-row,
+    .table-row {
+        margin-left: -12px;
+        margin-right: -12px;
+    }
+
+    .chart-row .col-lg-10,
+    .chart-row .col-lg-2,
+    .chart-row .col-lg-6,
+    .table-row .col-lg-6 {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+}
+
+@media (min-width: 1400px) {
+    main.container-fluid {
+        padding-left: 3rem;
+        padding-right: 3rem;
+    }
+}
+
+/* 图表区域特殊优化 */
+#chartsContainer {
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
+}
+
+/* 价格图表特殊处理 - 占用更多空间 */
+#priceChart {
+    max-width: 100%;
+    height: auto;
+}
+
+/* 持仓量图表优化 */
+#oiChart {
+    max-width: 100%;
+    height: auto;
+}
+
+/* 净流入和成交额图表优化 */
+#netFlowChart,
+#volumeChart {
+    max-width: 100%;
+    height: auto;
+}
+
+/* 进一步减少不必要的边距和填充 */
+.card-body {
+    padding: 0.75rem;
+}
+
+.card-header {
+    padding: 0.75rem 1rem;
+}
+
+/* 确保图表容器完全填充卡片 */
+.chart-card .card-body {
+    padding: 0.5rem;
+}
+
+.chart-container,
+.net-flow-chart-container,
+.volume-chart-container {
+    margin: 0;
+    padding: 0;
+}
+
+/* 移除统计卡片的额外边距 */
+#statsCards .col-md-3 {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+}
+
+/* 优化页面标题区域 */
+.row.mb-4 {
+    margin-bottom: 1rem !important;
+}
+
+/* 特殊处理：确保价格图表占用最大空间 */
+.col-lg-10 .card-body {
+    padding: 0.25rem;
+}
+
+.col-lg-2 .card-body {
+    padding: 0.5rem;
+}
+
+/* 进一步优化价格图表空间利用 */
+#priceChart {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: block !important;
+}
+
+.chart-container {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    overflow: hidden;
+}
+
+/* 移除Bootstrap默认的列边距 */
+.col-lg-10,
+.col-lg-2 {
+    padding-left: 2px !important;
+    padding-right: 2px !important;
+}
+
+/* 价格图表的父容器优化 */
+.col-lg-10 .position-relative {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: 200px !important;
+}
+
+/* 进一步减少卡片边距 */
+.chart-card {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+/* 确保图表完全填充容器 */
+canvas {
+    display: block !important;
+    box-sizing: border-box !important;
+}
+
+/* 特殊优化：减少价格图表卡片的内边距 */
+.col-lg-10 .chart-card .card-body {
+    padding: 0.125rem !important;
+}
+
+/* 图表控制按钮位置调整 */
+.chart-controls {
+    top: 0.25rem !important;
+    right: 0.25rem !important;
+}
+
+/* 强制Chart.js使用全部可用空间 */
+.chartjs-render-monitor {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* 进一步减少图表行的边距 */
+.chart-row {
+    margin-left: -2px !important;
+    margin-right: -2px !important;
+}
+
+/* 确保卡片完全填充列 */
+.chart-card {
+    width: 100% !important;
+    /* 移除height: 100%，让各个图表使用自己的高度设置 */
+}
+
+/* 设置所有图表卡片的固定高度 */
+.col-lg-10 .chart-card {
+    height: 280px !important; /* 价格图表：包含header的总高度 */
+}
+
+.col-lg-6 .chart-card {
+    height: 380px !important; /* 净流入和成交额图表 */
+}
+
+.col-lg-2 .chart-card {
+    height: 280px !important; /* 持仓量图表与价格图表相同高度 */
+}
+
+/* 移除任何可能的默认边距 */
+.card-body .position-relative {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* 针对价格图表的特殊优化 */
+#priceChart.chartjs-render-monitor {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+/* 解决时间周期滑块占用过多空间的问题 */
+.col-lg-10 .card-header .row.mt-3 {
+    margin-top: 0.5rem !important;
+    margin-bottom: 0 !important;
+}
+
+.col-lg-10 .card-header .position-relative.flex-grow-1.me-3 {
+    height: 20px !important;
+    margin-right: 0.5rem !important;
+}
+
+.col-lg-10 .card-header .d-flex.align-items-center {
+    min-height: 30px !important;
+    padding: 0 !important;
+}
+
+/* 强制价格图表card-body完全填充 */
+.col-lg-10 .chart-card .card-body {
+    padding: 0 !important;
+    margin: 0 !important;
+    flex: 1 !important;  /* 使用flex: 1而不是固定高度 */
+    display: flex !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    min-height: 500px !important;  /* 最小高度200px */
+}
+
+.col-lg-10 .chart-card .card-body .position-relative {
+    width: 100% !important;
+    height: 350px !important;  /* 明确设置高度 */
+    margin: 0 !important;
+    padding: 0 !important;
+    flex: 1 !important;
+    display: flex !important;
+    align-items: stretch !important;
+}
+
+/* 确保canvas完全填充父容器 */
+.col-lg-10 #priceChart {
+    width: 100% !important;
+    height: 500px !important;  /* 明确设置高度 */
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+}
+
+/* 减少时间滑块的高度 */
+.col-lg-10 .range-track {
+    height: 4px !important;
+    margin-top: 6px !important;
+}
+
+.col-lg-10 .form-range {
+    height: 4px !important;
+}
+
+/* 减少标签和控件的空间占用 */
+.col-lg-10 .form-label.me-3.mb-0.small {
+    margin-right: 0.5rem !important;
+    font-size: 0.75rem !important;
+}
+
+.col-lg-10 .small.text-muted {
+    font-size: 0.7rem !important;
+    min-width: 100px !important;
+}
+
+/* 净流入和成交额图表样式优化 */
+.col-lg-6 .card-header .row.mt-2 {
+    margin-top: 0.25rem !important;
+    margin-bottom: 0 !important;
+}
+
+.col-lg-6 .card-header .position-relative.flex-grow-1.me-2 {
+    height: 16px !important;
+    margin-right: 0.25rem !important;
+}
+
+.col-lg-6 .card-header .d-flex.align-items-center {
+    min-height: 24px !important;
+    padding: 0 !important;
+}
+
+.col-lg-6 .range-track {
+    height: 4px !important;
+    margin-top: 6px !important;
+}
+
+.col-lg-6 .form-range {
+    height: 4px !important;
+}
+
+.col-lg-6 .form-label.me-2.mb-0.small {
+    margin-right: 0.25rem !important;
+    font-size: 0.7rem !important;
+}
+
+.col-lg-6 .small.text-muted {
+    font-size: 0.65rem !important;
+    min-width: 80px !important;
+}
+
+/* 确保净流入和成交额图表的card-body正确填充 */
+.col-lg-6 .chart-card .card-body {
+    padding: 0.125rem !important;
+    flex: 1 !important;  /* 使用flex: 1而不是固定高度 */
+    display: flex !important;
+    align-items: stretch !important;
+    justify-content: stretch !important;
+    min-height: 350px !important;  /* 最小高度200px */
+}
+
+.col-lg-6 .chart-card .card-body .position-relative {
+    width: 100% !important;
+    height: 500px !important;  /* 明确设置高度 */
+    margin: 0 !important;
+    padding: 0 !important;
+    flex: 1 !important;
+    display: flex !important;
+    align-items: stretch !important;
+}
+
+/* 净流入和成交额图表的canvas样式 */
+.col-lg-6 #netFlowChart,
+.col-lg-6 #volumeChart {
+    width: 100% !important;
+    height: 500px !important;  /* 明确设置高度 */
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+}
+
+/* 图表控制按钮样式 */
+.col-lg-6 .chart-controls {
+    top: 0.125rem !important;
+    right: 0.125rem !important;
+}
+
+.col-lg-6 .chart-controls .btn {
+    padding: 0.125rem 0.25rem !important;
+    font-size: 0.7rem !important;
 }
