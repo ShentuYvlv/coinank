@@ -52,6 +52,9 @@ class CoinankApp {
             console.warn('⚠️ Chart.js未找到');
         }
 
+        // 强制应用深色主题到表格
+        this.applyDarkThemeToTables();
+
         // 绑定事件
         this.bindEvents();
 
@@ -59,6 +62,77 @@ class CoinankApp {
         this.connectWebSocket();
 
         console.log('✅ Coinank应用初始化完成');
+    }
+
+    // 强制应用深色主题到表格
+    applyDarkThemeToTables() {
+        const applyStyles = () => {
+            // 期货表格
+            const futuresTable = document.getElementById('futuresTable');
+            if (futuresTable) {
+                const futuresTableElement = futuresTable.closest('table');
+                if (futuresTableElement) {
+                    futuresTableElement.style.backgroundColor = '#252836';
+                    futuresTableElement.style.color = '#ffffff';
+                }
+
+                // 应用到所有行和单元格
+                const futuresRows = futuresTable.querySelectorAll('tr');
+                futuresRows.forEach(row => {
+                    row.style.backgroundColor = '#252836';
+                    row.style.color = '#ffffff';
+                    const cells = row.querySelectorAll('td, th');
+                    cells.forEach(cell => {
+                        cell.style.backgroundColor = '#252836';
+                        cell.style.color = '#ffffff';
+                        cell.style.borderColor = '#3a3f51';
+                    });
+                });
+            }
+
+            // 现货表格
+            const spotTable = document.getElementById('spotTable');
+            if (spotTable) {
+                const spotTableElement = spotTable.closest('table');
+                if (spotTableElement) {
+                    spotTableElement.style.backgroundColor = '#252836';
+                    spotTableElement.style.color = '#ffffff';
+                }
+
+                // 应用到所有行和单元格
+                const spotRows = spotTable.querySelectorAll('tr');
+                spotRows.forEach(row => {
+                    row.style.backgroundColor = '#252836';
+                    row.style.color = '#ffffff';
+                    const cells = row.querySelectorAll('td, th');
+                    cells.forEach(cell => {
+                        cell.style.backgroundColor = '#252836';
+                        cell.style.color = '#ffffff';
+                        cell.style.borderColor = '#3a3f51';
+                    });
+                });
+            }
+
+            // 表格头部
+            const tableHeaders = document.querySelectorAll('#futuresTable thead, #spotTable thead');
+            tableHeaders.forEach(header => {
+                header.style.backgroundColor = '#2c3e50';
+                const headerCells = header.querySelectorAll('th');
+                headerCells.forEach(cell => {
+                    cell.style.backgroundColor = '#2c3e50';
+                    cell.style.color = '#ffffff';
+                    cell.style.borderColor = '#3a3f51';
+                });
+            });
+        };
+
+        // 立即应用
+        applyStyles();
+
+        // 延迟应用，确保DOM完全加载
+        setTimeout(applyStyles, 100);
+        setTimeout(applyStyles, 500);
+        setTimeout(applyStyles, 1000);
     }
 
     bindEvents() {
@@ -568,14 +642,14 @@ class CoinankApp {
                 type: 'line',
                 label: `${this.currentToken} 价格`,
                 data: prices,
-                borderColor: '#F7931A',
+                borderColor: '#00d4ff',
                 backgroundColor: gradient,
                 borderWidth: 2,
                 fill: true,
                 tension: 0.1,
                 pointRadius: 0,
                 pointHoverRadius: 6,
-                pointHoverBackgroundColor: '#F7931A',
+                pointHoverBackgroundColor: '#00d4ff',
                 pointHoverBorderColor: '#ffffff',
                 pointHoverBorderWidth: 2,
                 yAxisID: 'y'
@@ -588,8 +662,8 @@ class CoinankApp {
                 type: 'bar',
                 label: '持仓量',
                 data: oiValues,
-                backgroundColor: 'rgba(54, 162, 235, 0.3)',
-                borderColor: 'rgba(54, 162, 235, 1)',
+                backgroundColor: 'rgba(0, 255, 136, 0.3)',
+                borderColor: 'rgba(0, 255, 136, 1)',
                 borderWidth: 1,
                 yAxisID: 'y1'
             });
@@ -633,10 +707,10 @@ class CoinankApp {
                         }
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(31, 31, 31, 0.9)',
-                        titleColor: '#fff',
-                        bodyColor: '#fff',
-                        borderColor: '#F7931A',
+                        backgroundColor: 'rgba(37, 40, 54, 0.95)',
+                        titleColor: '#ffffff',
+                        bodyColor: '#b8bcc8',
+                        borderColor: '#00d4ff',
                         borderWidth: 1,
                         cornerRadius: 8,
                         displayColors: true,
@@ -689,12 +763,12 @@ class CoinankApp {
                         display: true,
                         offset: false,
                         grid: {
-                            color: 'rgba(255, 255, 255, 0.1)',
+                            color: 'rgba(184, 188, 200, 0.1)',
                             drawBorder: false,
                             offset: false
                         },
                         ticks: {
-                            color: '#999',
+                            color: '#b8bcc8',
                             maxTicksLimit: 12,
                             padding: 0,
                             callback: function(value) {
@@ -709,11 +783,11 @@ class CoinankApp {
                         display: this.showPrice,
                         position: 'left',
                         grid: {
-                            color: 'rgba(255, 255, 255, 0.1)',
+                            color: 'rgba(184, 188, 200, 0.1)',
                             drawBorder: false
                         },
                         ticks: {
-                            color: '#999',
+                            color: '#b8bcc8',
                             padding: 5,
                             callback: function(value) {
                                 return '$' + value.toFixed(8);
@@ -728,7 +802,7 @@ class CoinankApp {
                             drawOnChartArea: false,
                         },
                         ticks: {
-                            color: '#999',
+                            color: '#b8bcc8',
                             padding: 5,
                             callback: function(value) {
                                 return '$' + (value / 1e6).toFixed(1) + 'M';
@@ -942,7 +1016,7 @@ class CoinankApp {
                 datasets: [{
                     label: '净流入',
                     data: netFlowValues,
-                    borderColor: '#28a745',
+                    borderColor: '#00ff88',
                     backgroundColor: gradient,
                     borderWidth: 2,
                     fill: true,
@@ -952,8 +1026,8 @@ class CoinankApp {
                 }, {
                     label: '买入量',
                     data: buyValues,
-                    borderColor: '#007bff',
-                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    borderColor: '#00d4ff',
+                    backgroundColor: 'rgba(0, 212, 255, 0.1)',
                     borderWidth: 1,
                     fill: false,
                     tension: 0.1,
@@ -961,8 +1035,8 @@ class CoinankApp {
                 }, {
                     label: '卖出量',
                     data: sellValues,
-                    borderColor: '#dc3545',
-                    backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                    borderColor: '#ff4757',
+                    backgroundColor: 'rgba(255, 71, 87, 0.1)',
                     borderWidth: 1,
                     fill: false,
                     tension: 0.1,
@@ -1025,20 +1099,20 @@ class CoinankApp {
                     x: {
                         display: true,
                         grid: {
-                            color: 'rgba(255, 255, 255, 0.1)'
+                            color: 'rgba(184, 188, 200, 0.1)'
                         },
                         ticks: {
-                            color: '#999',
+                            color: '#b8bcc8',
                             maxTicksLimit: 8
                         }
                     },
                     y: {
                         display: true,
                         grid: {
-                            color: 'rgba(255, 255, 255, 0.1)'
+                            color: 'rgba(184, 188, 200, 0.1)'
                         },
                         ticks: {
-                            color: '#999',
+                            color: '#b8bcc8',
                             callback: function(value) {
                                 return value.toFixed(2);
                             }
@@ -1087,8 +1161,8 @@ class CoinankApp {
 
         // 创建渐变效果
         const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-        gradient.addColorStop(0, 'rgba(255, 193, 7, 0.3)');
-        gradient.addColorStop(1, 'rgba(255, 193, 7, 0.05)');
+        gradient.addColorStop(0, 'rgba(255, 184, 0, 0.3)');
+        gradient.addColorStop(1, 'rgba(255, 184, 0, 0.05)');
 
         this.charts.volumeChart = new Chart(ctx, {
             type: 'bar',
@@ -1098,7 +1172,7 @@ class CoinankApp {
                     label: '24H成交额',
                     data: values,
                     backgroundColor: gradient,
-                    borderColor: '#ffc107',
+                    borderColor: '#ffb800',
                     borderWidth: 1
                 }]
             },
@@ -1158,20 +1232,20 @@ class CoinankApp {
                     x: {
                         display: true,
                         grid: {
-                            color: 'rgba(255, 255, 255, 0.1)'
+                            color: 'rgba(184, 188, 200, 0.1)'
                         },
                         ticks: {
-                            color: '#999',
+                            color: '#b8bcc8',
                             maxTicksLimit: 10
                         }
                     },
                     y: {
                         display: true,
                         grid: {
-                            color: 'rgba(255, 255, 255, 0.1)'
+                            color: 'rgba(184, 188, 200, 0.1)'
                         },
                         ticks: {
-                            color: '#999',
+                            color: '#b8bcc8',
                             callback: function(value) {
                                 return '$' + (value / 1e6).toFixed(1) + 'M';
                             }
@@ -1220,6 +1294,9 @@ class CoinankApp {
                 </tr>
             `;
         }).join('');
+
+        // 应用深色主题
+        this.applyDarkThemeToTables();
     }
 
     updateSpotTable() {
@@ -1252,6 +1329,9 @@ class CoinankApp {
                 </tr>
             `;
         }).join('');
+
+        // 应用深色主题
+        this.applyDarkThemeToTables();
     }
 
     showEmptyChart(ctx, message) {
