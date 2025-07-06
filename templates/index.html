@@ -134,8 +134,9 @@
         </div>
 
         <!-- 图表区域 -->
-        <div id="chartsContainer" class="row" style="display: none;">
+        <div id="chartsContainer" class="row" style="display: block;">
             <!-- 价格图表和持仓量分布在同一行 -->
+            <div class="row chart-row mb-4">
             <div class="col-lg-9 mb-4">
                 <div class="card chart-card" data-aos="fade-up">
                     <div class="card-header">
@@ -210,8 +211,45 @@
                     </div>
                 </div>
             </div>
+            </div>
+
+            <!-- 净流入数据图表和24H成交额图表在同一行 -->
+            <div class="row chart-row mb-4">
+            <div class="col-lg-6 mb-4">
+                <div class="card chart-card" data-aos="fade-up">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-exchange-alt me-2"></i>
+                            净流入数据
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="net-flow-chart-container">
+                            <canvas id="netFlowChart" width="800" height="400"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6 mb-4">
+                <div class="card chart-card" data-aos="fade-up" data-aos-delay="100">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-chart-bar me-2"></i>
+                            24H成交额
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="volume-chart-container">
+                            <canvas id="volumeChart" width="800" height="400"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            </div>
 
             <!-- 期货和现货市场数据在同一行 -->
+            <div class="row table-row mb-4">
             <div class="col-lg-6 mb-4">
                 <div class="card" data-aos="fade-up" data-aos-delay="200">
                     <div class="card-header">
@@ -267,6 +305,7 @@
                         </div>
                     </div>
                 </div>
+            </div>
             </div>
         </div>
 

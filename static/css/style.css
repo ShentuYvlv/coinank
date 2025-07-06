@@ -646,4 +646,63 @@ canvas {
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
-} 
+}
+
+/* 图表高度一致性样式 */
+.chart-row {
+    display: flex;
+    align-items: stretch;
+}
+
+.chart-row .col-lg-9,
+.chart-row .col-lg-3 {
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-row .chart-card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-row .chart-card .card-body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 数据表格行高度一致性 */
+.table-row {
+    display: flex;
+    align-items: stretch;
+}
+
+.table-row .col-lg-6 {
+    display: flex;
+    flex-direction: column;
+}
+
+.table-row .card {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.table-row .card .card-body {
+    flex: 1;
+}
+
+/* 新增图表容器样式 */
+.net-flow-chart-container,
+.volume-chart-container {
+    height: 400px;
+    position: relative;
+}
+
+.net-flow-chart-container canvas,
+.volume-chart-container canvas {
+    width: 100% !important;
+    height: 100% !important;
+}

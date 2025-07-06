@@ -109,181 +109,324 @@ def get_token_data(token):
     # 获取新数据
     try:
         print(f"📊 正在获取 {token} 数据...")
-        
+
         # 使用新的API客户端获取数据
         raw_data = api_client.get_complete_token_data(token)
-        
+
         if not raw_data:
             print(f"❌ 获取 {token} 数据失败")
             return None
-        
+
+        print(f"[调试] 原始数据键: {list(raw_data.keys())}")
+
         # 处理数据
         processed_data = process_data_for_web(
-            raw_data['chart_data'], 
-            raw_data['ticker_data'], 
-            raw_data['spot_data'],
+            raw_data.get('chart_data'),
+            raw_data.get('ticker_data'),
+            raw_data.get('spot_data'),
             raw_data.get('oi_chart_data'),
             raw_data.get('volume_chart_data'),
+            raw_data.get('net_flow_data'),
             token
         )
-        
+
         # 缓存数据
         data_cache[cache_key] = processed_data
         last_update_time[cache_key] = current_time
-        
+
         return processed_data
-        
+
     except Exception as e:
         print(f"❌ 获取 {token} 数据失败: {e}")
+        import traceback
+        print(f"❌ 详细错误信息: {traceback.format_exc()}")
         return None
 
-def process_data_for_web(chart_data, ticker_data, spot_data, oi_chart_data, volume_chart_data, token):
+def process_data_for_web(chart_data, ticker_data, spot_data, oi_chart_data, volume_chart_data, net_flow_data, token):
     """处理数据用于Web展示"""
-    # 提取价格数据
-    price_data = []
-    if chart_data:
-        data = chart_data.get('data', {})
-        timestamps = data.get('tss', [])
-        prices = data.get('prices', [])
-        
-        min_length = min(len(timestamps), len(prices))
-        for i in range(min_length):
-            if prices[i] and timestamps[i]:
-                price_data.append({
-                    'time': timestamps[i],
-                    'price': prices[i]
-                })
-    
-    # 提取持仓量数据 - 使用新的持仓量API数据
-    print(f"[调试] 开始处理持仓量数据...")
-    oi_data = []
-    oi_time_series = []  # 用于在价格图表上显示的时序数据
-    
-    # 优先使用持仓量图表API数据
-    if oi_chart_data:
-        print(f"[调试] 使用持仓量图表API数据")
-        data = oi_chart_data.get('data', {})
-        
-        # 处理时序数据（用于价格图表）
-        timestamps = data.get('tss', [])
-        data_values = data.get('dataValues', {})
-        
-        if timestamps and data_values:
-            # 为每个时间点计算总持仓量
-            for i, timestamp in enumerate(timestamps):
-                total_oi = 0
-                for exchange, values in data_values.items():
-                    if i < len(values) and values[i] is not None:
-                        total_oi += values[i]
-                
-                if total_oi > 0:
-                    oi_time_series.append({
-                        'time': timestamp,
-                        'value': total_oi
+    try:
+        print(f"[调试] 开始处理数据，输入参数:")
+        print(f"[调试] - chart_data: {type(chart_data)} {'有数据' if chart_data else '无数据'}")
+        print(f"[调试] - ticker_data: {type(ticker_data)} {'有数据' if ticker_data else '无数据'}")
+        print(f"[调试] - spot_data: {type(spot_data)} {'有数据' if spot_data else '无数据'}")
+        print(f"[调试] - oi_chart_data: {type(oi_chart_data)} {'有数据' if oi_chart_data else '无数据'}")
+        print(f"[调试] - volume_chart_data: {type(volume_chart_data)} {'有数据' if volume_chart_data else '无数据'}")
+        print(f"[调试] - net_flow_data: {type(net_flow_data)} {'有数据' if net_flow_data else '无数据'}")
+
+        # 提取价格数据
+        price_data = []
+        if chart_data:
+            data = chart_data.get('data', {})
+            timestamps = data.get('tss', [])
+            prices = data.get('prices', [])
+
+            min_length = min(len(timestamps), len(prices))
+            for i in range(min_length):
+                if prices[i] and timestamps[i]:
+                    price_data.append({
+                        'time': timestamps[i],
+                        'price': prices[i]
                     })
-        
-        # 处理分布数据（用于饼图）
-        for exchange, values in data_values.items():
-            if values:
-                total_value = sum(v for v in values if v is not None and v > 0)
-                if total_value > 0:
+
+        # 提取持仓量数据 - 使用新的持仓量API数据
+        print(f"[调试] 开始处理持仓量数据...")
+        oi_data = []
+        oi_time_series = []  # 用于在价格图表上显示的时序数据
+
+        # 优先使用持仓量图表API数据
+        if oi_chart_data:
+            print(f"[调试] 使用持仓量图表API数据")
+            data = oi_chart_data.get('data', {})
+
+            # 处理时序数据（用于价格图表）
+            timestamps = data.get('tss', [])
+            data_values = data.get('dataValues', {})
+
+            if timestamps and data_values:
+                # 为每个时间点计算总持仓量
+                for i, timestamp in enumerate(timestamps):
+                    total_oi = 0
+                    for exchange, values in data_values.items():
+                        if i < len(values) and values[i] is not None:
+                            total_oi += values[i]
+
+                    if total_oi > 0:
+                        oi_time_series.append({
+                            'time': timestamp,
+                            'value': total_oi
+                        })
+
+            # 处理分布数据（用于饼图）
+            for exchange, values in data_values.items():
+                if values:
+                    total_value = sum(v for v in values if v is not None and v > 0)
+                    if total_value > 0:
+                        oi_data.append({
+                            'exchange': exchange,
+                            'value': total_value
+                        })
+                        print(f"[调试] 持仓量API - {exchange}: {total_value}")
+
+        # 如果持仓量API数据为空，回退到期货数据
+        if not oi_data and ticker_data:
+            print(f"[调试] 持仓量API数据为空，使用期货数据...")
+            ticker_list = ticker_data.get('data', [])
+            for ticker in ticker_list:
+                oi_usd = ticker.get('oiUSD', 0)
+                exchange_name = ticker.get('exchangeName', '')
+                if oi_usd and oi_usd > 0 and exchange_name:
                     oi_data.append({
-                        'exchange': exchange,
-                        'value': total_value
+                        'exchange': exchange_name,
+                        'value': oi_usd
                     })
-                    print(f"[调试] 持仓量API - {exchange}: {total_value}")
+                    print(f"[调试] 期货持仓量 - {exchange_name}: {oi_usd}")
+
+        print(f"[调试] 最终持仓量分布数据数量: {len(oi_data)}")
+        print(f"[调试] 持仓量时序数据数量: {len(oi_time_series)}")
+
+        # 处理净流入数据
+        print(f"[调试] 开始处理净流入数据...")
+        net_flow_time_series = []
+        if net_flow_data and net_flow_data.get('success'):
+            print(f"[调试] 使用净流入API数据")
+
+            try:
+                data = net_flow_data.get('data', {})
+                long_ratios = data.get('longRatios', [])
+                short_ratios = data.get('shortRatios', [])
+                timestamps = data.get('tss', [])
+
+                print(f"[调试] 多头数据数量: {len(long_ratios)}")
+                print(f"[调试] 空头数据数量: {len(short_ratios)}")
+                print(f"[调试] 时间戳数量: {len(timestamps)}")
+
+                # 确保所有数组长度一致
+                min_length = min(len(long_ratios), len(short_ratios), len(timestamps))
+                print(f"[调试] 使用数据长度: {min_length}")
+
+                for i in range(min_length):
+                    timestamp = timestamps[i]
+                    long_volume = long_ratios[i] if i < len(long_ratios) else 0
+                    short_volume = short_ratios[i] if i < len(short_ratios) else 0
+                    net_flow = long_volume - short_volume
+
+                    net_flow_time_series.append({
+                        'time': timestamp,
+                        'value': net_flow,
+                        'buy_volume': long_volume,
+                        'sell_volume': short_volume
+                    })
+
+                    if i < 3:  # 只打印前3个数据点进行调试
+                        print(f"[调试] 净流入数据点 {i}: 时间={timestamp}, 多头={long_volume}, 空头={short_volume}, 净流入={net_flow}")
+
+            except Exception as e:
+                print(f"[调试] 处理净流入数据时出错: {e}")
+                import traceback
+                print(f"[调试] 详细错误: {traceback.format_exc()}")
+        else:
+            print(f"[调试] 净流入数据为空或API调用失败")
+
+        print(f"[调试] 净流入时序数据数量: {len(net_flow_time_series)}")
+
+        # 处理24H成交额数据
+        print(f"[调试] 开始处理24H成交额数据...")
+        volume_time_series = []
+        if volume_chart_data and volume_chart_data.get('success'):
+            print(f"[调试] 使用24H成交额API数据")
+
+            try:
+                data = volume_chart_data.get('data', {})
+                timestamps = data.get('tss', [])
+                single_values = data.get('single', [])  # 使用single字段而不是dataValues
+
+                print(f"[调试] 24H成交额时间戳数量: {len(timestamps)}")
+                print(f"[调试] 24H成交额数据数量: {len(single_values)}")
+
+                # 确保时间戳和数据数量一致
+                min_length = min(len(timestamps), len(single_values))
+                print(f"[调试] 使用数据长度: {min_length}")
+
+                for i in range(min_length):
+                    timestamp = timestamps[i]
+                    volume_value = single_values[i]
+
+                    # 跳过null值
+                    if volume_value is not None and volume_value > 0:
+                        volume_time_series.append({
+                            'time': timestamp,
+                            'value': volume_value
+                        })
+
+                        if i < 3:  # 只打印前3个数据点进行调试
+                            print(f"[调试] 24H成交额数据点 {i}: 时间={timestamp}, 成交额={volume_value}")
+
+            except Exception as e:
+                print(f"[调试] 处理24H成交额数据时出错: {e}")
+                import traceback
+                print(f"[调试] 详细错误: {traceback.format_exc()}")
+        else:
+            print(f"[调试] 24H成交额数据为空或API调用失败")
+
+        print(f"[调试] 24H成交额时序数据数量: {len(volume_time_series)}")
+
+        # 提取价格数据用于统计
+        prices = [item['price'] for item in price_data if item['price'] > 0]
+
+        # 期货市场数据
+        futures_data = []
+        if ticker_data:
+            ticker_list = ticker_data.get('data', [])
+            print(f"[调试] 原始期货数据数量: {len(ticker_list)}")
+
+            for ticker in ticker_list:
+                print(f"[调试] 期货数据: {ticker.get('exchangeName', 'Unknown')} - oiUSD: {ticker.get('oiUSD', 'None')} - price: {ticker.get('lastPrice', 'None')}")
+
+                # 放宽过滤条件，只要有交易所名称就显示
+                if ticker.get('exchangeName') and ticker.get('lastPrice', 0) > 0:
+                    # 修复fundingRate为None的问题
+                    funding_rate = ticker.get('fundingRate', 0)
+                    if funding_rate is None:
+                        funding_rate = 0
+
+                    futures_data.append({
+                        'exchange': ticker.get('exchangeName', ''),
+                        'price': ticker.get('lastPrice', 0),
+                        'oi_usd': ticker.get('oiUSD', 0),
+                        'funding_rate': funding_rate,
+                        'volume_24h': ticker.get('turnover24h', 0)
+                    })
+
+            print(f"[调试] 过滤后期货数据数量: {len(futures_data)}")
     
-    # 如果持仓量API数据为空，回退到期货数据
-    if not oi_data and ticker_data:
-        print(f"[调试] 持仓量API数据为空，使用期货数据...")
-        ticker_list = ticker_data.get('data', [])
-        for ticker in ticker_list:
-            oi_usd = ticker.get('oiUSD', 0)
-            exchange_name = ticker.get('exchangeName', '')
-            if oi_usd and oi_usd > 0 and exchange_name:
-                oi_data.append({
-                    'exchange': exchange_name,
-                    'value': oi_usd
-                })
-                print(f"[调试] 期货持仓量 - {exchange_name}: {oi_usd}")
-    
-    print(f"[调试] 最终持仓量分布数据数量: {len(oi_data)}")
-    print(f"[调试] 持仓量时序数据数量: {len(oi_time_series)}")
-    
-    # 提取价格数据用于统计
-    prices = [item['price'] for item in price_data if item['price'] > 0]
-    
-    # 期货市场数据
-    futures_data = []
-    if ticker_data:
-        ticker_list = ticker_data.get('data', [])
-        print(f"[调试] 原始期货数据数量: {len(ticker_list)}")
-        
-        for ticker in ticker_list:
-            print(f"[调试] 期货数据: {ticker.get('exchangeName', 'Unknown')} - oiUSD: {ticker.get('oiUSD', 'None')} - price: {ticker.get('lastPrice', 'None')}")
-            
-            # 放宽过滤条件，只要有交易所名称就显示
-            if ticker.get('exchangeName') and ticker.get('lastPrice', 0) > 0:
-                # 修复fundingRate为None的问题
-                funding_rate = ticker.get('fundingRate', 0)
-                if funding_rate is None:
-                    funding_rate = 0
-                
-                futures_data.append({
-                    'exchange': ticker.get('exchangeName', ''),
-                    'price': ticker.get('lastPrice', 0),
-                    'oi_usd': ticker.get('oiUSD', 0),
-                    'funding_rate': funding_rate,
-                    'volume_24h': ticker.get('turnover24h', 0)
-                })
-                
-        print(f"[调试] 过滤后期货数据数量: {len(futures_data)}")
-    
-    # 现货市场数据
-    spot_data_list = []
-    if spot_data:
-        spot_list = spot_data.get('data', [])
-        print(f"[调试] 原始现货数据数量: {len(spot_list)}")
-        
-        for spot in spot_list:
-            print(f"[调试] 现货数据: {spot.get('exchangeName', 'Unknown')} - turnover24h: {spot.get('turnover24h', 'None')} - price: {spot.get('lastPrice', 'None')}")
-            
-            # 放宽过滤条件，只要有交易所名称就显示
-            if spot.get('exchangeName') and spot.get('lastPrice', 0) > 0:
-                spot_data_list.append({
-                    'exchange': spot.get('exchangeName', ''),
-                    'price': spot.get('lastPrice', 0),
-                    'volume_24h': spot.get('turnover24h', 0)
-                })
-                
-        print(f"[调试] 过滤后现货数据数量: {len(spot_data_list)}")
-    
-    # 统计信息
-    stats = {
-        'current_price': prices[-1] if prices else 0,
-        'highest_price': max(prices) if prices else 0,
-        'lowest_price': min(prices) if prices else 0,
-        'total_oi': sum(item['oi_usd'] for item in futures_data),
-        'total_volume': sum(item['volume_24h'] for item in spot_data_list),
-        'exchanges_count': len(futures_data),
-        'avg_funding_rate': sum(item['funding_rate'] for item in futures_data) / len(futures_data) if futures_data else 0
-    }
-    
-    if len(prices) > 1:
-        stats['price_change_percent'] = ((prices[-1] - prices[0]) / prices[0]) * 100
-    else:
-        stats['price_change_percent'] = 0
-    
-    return {
-        'token': token,
-        'price_data': price_data,
-        'oi_data': oi_data,
-        'oi_time_series': oi_time_series,
-        'futures': futures_data,
-        'spot': spot_data_list,
-        'stats': stats,
-        'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    }
+        # 现货市场数据
+        spot_data_list = []
+        if spot_data:
+            spot_list = spot_data.get('data', [])
+            print(f"[调试] 原始现货数据数量: {len(spot_list)}")
+
+            for spot in spot_list:
+                print(f"[调试] 现货数据: {spot.get('exchangeName', 'Unknown')} - turnover24h: {spot.get('turnover24h', 'None')} - price: {spot.get('lastPrice', 'None')}")
+
+                # 放宽过滤条件，只要有交易所名称就显示
+                if spot.get('exchangeName') and spot.get('lastPrice', 0) > 0:
+                    spot_data_list.append({
+                        'exchange': spot.get('exchangeName', ''),
+                        'price': spot.get('lastPrice', 0),
+                        'volume_24h': spot.get('turnover24h', 0)
+                    })
+
+            print(f"[调试] 过滤后现货数据数量: {len(spot_data_list)}")
+
+        # 统计信息
+        stats = {
+            'current_price': prices[-1] if prices else 0,
+            'highest_price': max(prices) if prices else 0,
+            'lowest_price': min(prices) if prices else 0,
+            'total_oi': sum(item['oi_usd'] for item in futures_data),
+            'total_volume': sum(item['volume_24h'] for item in spot_data_list),
+            'exchanges_count': len(futures_data),
+            'avg_funding_rate': sum(item['funding_rate'] for item in futures_data) / len(futures_data) if futures_data else 0
+        }
+
+        if len(prices) > 1:
+            stats['price_change_percent'] = ((prices[-1] - prices[0]) / prices[0]) * 100
+        else:
+            stats['price_change_percent'] = 0
+
+        return {
+            'token': token,
+            'price_data': price_data,
+            'oi_data': oi_data,
+            'oi_time_series': oi_time_series,
+            'net_flow_time_series': net_flow_time_series,
+            'volume_time_series': volume_time_series,
+            'futures': futures_data,
+            'spot': spot_data_list,
+            'stats': stats,
+            'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+
+        return {
+            'token': token,
+            'price_data': price_data,
+            'oi_data': oi_data,
+            'oi_time_series': oi_time_series,
+            'net_flow_time_series': net_flow_time_series,
+            'volume_time_series': volume_time_series,
+            'futures': futures_data,
+            'spot': spot_data_list,
+            'stats': stats,
+            'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+
+    except Exception as e:
+        print(f"❌ 处理数据时出错: {e}")
+        import traceback
+        print(f"❌ 详细错误信息: {traceback.format_exc()}")
+
+        # 返回基本的空数据结构，确保应用不会崩溃
+        return {
+            'token': token,
+            'price_data': [],
+            'oi_data': [],
+            'oi_time_series': [],
+            'net_flow_time_series': [],
+            'volume_time_series': [],
+            'futures': [],
+            'spot': [],
+            'stats': {
+                'current_price': 0,
+                'highest_price': 0,
+                'lowest_price': 0,
+                'total_oi': 0,
+                'total_volume': 0,
+                'exchanges_count': 0,
+                'avg_funding_rate': 0,
+                'price_change_percent': 0
+            },
+            'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
 
 @app.route('/')
 def index():

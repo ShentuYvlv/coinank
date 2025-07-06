@@ -317,6 +317,8 @@ class CoinankApp {
     updateCharts() {
         this.updatePriceChart();
         this.updateOIChart();
+        this.updateNetFlowChart();
+        this.updateVolumeChart();
     }
 
     updatePriceChart() {
@@ -636,6 +638,231 @@ class CoinankApp {
                                 const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                 const percentage = ((context.parsed / total) * 100).toFixed(1);
                                 return `${context.label}: $${(context.parsed / 1e6).toFixed(1)}M (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    updateNetFlowChart() {
+        const canvas = document.getElementById('netFlowChart');
+        const ctx = canvas.getContext('2d');
+
+        // 销毁现有图表
+        if (this.charts.netFlowChart) {
+            this.charts.netFlowChart.destroy();
+        }
+
+        const netFlowData = this.data.net_flow_time_series || [];
+
+        if (netFlowData.length === 0) {
+            this.showEmptyChart(ctx, '暂无净流入数据');
+            return;
+        }
+
+        // 按时间排序
+        const sortedData = netFlowData.sort((a, b) => new Date(a.time) - new Date(b.time));
+
+        const labels = sortedData.map(item => {
+            const date = new Date(item.time);
+            return date.toLocaleDateString('zh-CN', {
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit'
+            });
+        });
+
+        const netFlowValues = sortedData.map(item => item.value);
+        const buyValues = sortedData.map(item => item.buy_volume || 0);
+        const sellValues = sortedData.map(item => item.sell_volume || 0);
+
+        // 创建渐变效果
+        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(40, 167, 69, 0.3)');
+        gradient.addColorStop(1, 'rgba(40, 167, 69, 0.05)');
+
+        this.charts.netFlowChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '净流入',
+                    data: netFlowValues,
+                    borderColor: '#28a745',
+                    backgroundColor: gradient,
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.1,
+                    pointRadius: 0,
+                    pointHoverRadius: 6
+                }, {
+                    label: '买入量',
+                    data: buyValues,
+                    borderColor: '#007bff',
+                    backgroundColor: 'rgba(0, 123, 255, 0.1)',
+                    borderWidth: 1,
+                    fill: false,
+                    tension: 0.1,
+                    pointRadius: 0
+                }, {
+                    label: '卖出量',
+                    data: sellValues,
+                    borderColor: '#dc3545',
+                    backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                    borderWidth: 1,
+                    fill: false,
+                    tension: 0.1,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(31, 31, 31, 0.9)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: '#28a745',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.dataset.label}: ${context.parsed.y.toFixed(2)}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: '#999',
+                            maxTicksLimit: 8
+                        }
+                    },
+                    y: {
+                        display: true,
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: '#999',
+                            callback: function(value) {
+                                return value.toFixed(2);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    updateVolumeChart() {
+        const canvas = document.getElementById('volumeChart');
+        const ctx = canvas.getContext('2d');
+
+        // 销毁现有图表
+        if (this.charts.volumeChart) {
+            this.charts.volumeChart.destroy();
+        }
+
+        const volumeData = this.data.volume_time_series || [];
+
+        if (volumeData.length === 0) {
+            this.showEmptyChart(ctx, '暂无24H成交额数据');
+            return;
+        }
+
+        // 按时间排序
+        const sortedData = volumeData.sort((a, b) => new Date(a.time) - new Date(b.time));
+
+        const labels = sortedData.map(item => {
+            const date = new Date(item.time);
+            return date.toLocaleDateString('zh-CN', {
+                month: '2-digit',
+                day: '2-digit'
+            });
+        });
+
+        const values = sortedData.map(item => item.value);
+
+        // 创建渐变效果
+        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(255, 193, 7, 0.3)');
+        gradient.addColorStop(1, 'rgba(255, 193, 7, 0.05)');
+
+        this.charts.volumeChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: '24H成交额',
+                    data: values,
+                    backgroundColor: gradient,
+                    borderColor: '#ffc107',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(31, 31, 31, 0.9)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: '#ffc107',
+                        borderWidth: 1,
+                        cornerRadius: 8,
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.dataset.label}: $${(context.parsed.y / 1e6).toFixed(2)}M`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: '#999',
+                            maxTicksLimit: 10
+                        }
+                    },
+                    y: {
+                        display: true,
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: '#999',
+                            callback: function(value) {
+                                return '$' + (value / 1e6).toFixed(1) + 'M';
                             }
                         }
                     }

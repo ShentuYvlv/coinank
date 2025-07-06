@@ -344,11 +344,20 @@ class CoinankAPI:
         oi_chart_data = self.fetch_open_interest_chart(token)
         time.sleep(1)
         volume_chart_data = self.fetch_volume_chart(token)
+        time.sleep(1)
+
+        # 获取净流入数据
+        try:
+            net_flow_data = self.fetch_long_short_flow(token)
+            print(f"✅ 净流入数据获取成功")
+        except Exception as e:
+            print(f"⚠️ 净流入数据获取失败: {e}")
+            net_flow_data = None
         
         # 验证数据
-        all_data = [chart_data, ticker_data, spot_data, oi_chart_data, volume_chart_data]
+        all_data = [chart_data, ticker_data, spot_data, oi_chart_data, volume_chart_data, net_flow_data]
         success_count = sum([1 for data in all_data if data])
-        print(f"📈 数据获取结果: {success_count}/5 成功")
+        print(f"📈 数据获取结果: {success_count}/6 成功")
         
         if success_count == 0:
             print("❌ 未能获取到任何数据")
@@ -360,6 +369,7 @@ class CoinankAPI:
             'spot_data': spot_data,
             'oi_chart_data': oi_chart_data,
             'volume_chart_data': volume_chart_data,
+            'net_flow_data': net_flow_data,
             'token': token,
             'fetch_time': datetime.now().isoformat()
         }
