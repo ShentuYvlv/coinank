@@ -269,6 +269,41 @@ main {
     color: var(--bg-primary);
 }
 
+/* 图表筛选下拉框样式 */
+.chart-filter {
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    min-width: 70px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.chart-filter:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.chart-filter:focus {
+    background: var(--bg-tertiary);
+    border-color: var(--primary-color);
+    color: var(--text-primary);
+    box-shadow: 0 0 0 0.2rem rgba(0, 212, 255, 0.25);
+}
+
+.chart-filter option {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: 0.5rem;
+}
+
+.dropdown-group {
+    gap: 0.5rem;
+}
+
 /* 数据开关样式 - 深色主题优化 */
 .form-check {
     margin-bottom: 0;

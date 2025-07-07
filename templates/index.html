@@ -185,30 +185,62 @@
             <div class="col-lg-10 mb-4">
                 <div class="card chart-card" data-aos="fade-up">
                     <div class="card-header">
-                        <div class="row align-items-center">
-                            <div class="col-md-6">
-                                <h5 class="card-title mb-0">
-                                    <i class="fas fa-chart-line me-2"></i>
-                                    PEPE 价格走势图
-                                </h5>
+                        <div class="d-flex align-items-center justify-content-between">
+                            <!-- 左侧下拉框组 -->
+                            <div class="dropdown-group d-flex align-items-center">
+                                <!-- 交易所筛选 -->
+                                <select class="form-select form-select-sm chart-filter me-2" id="exchangeFilter">
+                                    <option value="all">ALL</option>
+                                    <option value="binance">Binance</option>
+                                    <option value="okx">OKX</option>
+                                    <option value="bybit">Bybit</option>
+                                </select>
+                                
+                                <!-- 资产类型 -->
+                                <select class="form-select form-select-sm chart-filter me-2" id="assetFilter">
+                                    <option value="usd">USD</option>
+                                    <option value="btc">BTC</option>
+                                    <option value="eth">ETH</option>
+                                </select>
+                                
+                                <!-- 时间周期 -->
+                                <select class="form-select form-select-sm chart-filter me-2" id="timeFilter">
+                                    <option value="1d">1d</option>
+                                    <option value="7d">7d</option>
+                                    <option value="30d">30d</option>
+                                    <option value="all">ALL</option>
+                                </select>
+                                
+                                <!-- 图表类型 -->
+                                <select class="form-select form-select-sm chart-filter" id="chartTypeFilter">
+                                    <option value="area">面积图</option>
+                                    <option value="line">折线图</option>
+                                    <option value="candle">K线图</option>
+                                </select>
                             </div>
-                            <div class="col-md-6">
-                                <div class="d-flex justify-content-end align-items-center">
-                                    <!-- 数据开关 -->
-                                    <div class="form-check form-switch me-3">
-                                        <input class="form-check-input" type="checkbox" id="showPriceSwitch" checked>
-                                        <label class="form-check-label small" for="showPriceSwitch">价格</label>
-                                    </div>
-                                    <div class="form-check form-switch me-3">
-                                        <input class="form-check-input" type="checkbox" id="showOISwitch" checked>
-                                        <label class="form-check-label small" for="showOISwitch">持仓量</label>
-                                    </div>
-                                    <!-- 时间范围选择器 -->
-                                    <div class="btn-group btn-group-sm" role="group">
-                                        <button type="button" class="btn btn-outline-primary active" data-timeframe="1d">1D</button>
-                                        <button type="button" class="btn btn-outline-primary" data-timeframe="7d">7D</button>
-                                        <button type="button" class="btn btn-outline-primary" data-timeframe="30d">30D</button>
-                                    </div>
+                            
+                            <!-- 中间图表标题 -->
+                            <h5 class="card-title mb-0 text-center flex-grow-1">
+                                <i class="fas fa-chart-line me-2"></i>
+                                PEPE 价格走势图
+                            </h5>
+                            
+                            <!-- 右侧控制按钮 -->
+                            <div class="chart-controls d-flex align-items-center">
+                                <!-- 数据开关 -->
+                                <div class="form-check form-switch me-3">
+                                    <input class="form-check-input" type="checkbox" id="showPriceSwitch" checked>
+                                    <label class="form-check-label small" for="showPriceSwitch">价格</label>
+                                </div>
+                                <div class="form-check form-switch me-3">
+                                    <input class="form-check-input" type="checkbox" id="showOISwitch" checked>
+                                    <label class="form-check-label small" for="showOISwitch">持仓量</label>
+                                </div>
+                                <!-- 时间范围选择器 -->
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-primary active" data-timeframe="1d">1D</button>
+                                    <button type="button" class="btn btn-outline-primary" data-timeframe="7d">7D</button>
+                                    <button type="button" class="btn btn-outline-primary" data-timeframe="30d">30D</button>
                                 </div>
                             </div>
                         </div>

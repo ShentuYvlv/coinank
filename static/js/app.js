@@ -29,6 +29,12 @@ class CoinankApp {
         this.volumeTimeRangeEnd = 100;
         this.volumeChartType = 'bar';
         
+        // 筛选器状态
+        this.currentExchange = 'all';
+        this.currentAsset = 'usd';
+        this.currentTimeframe = '1d';
+        this.currentChartType = 'area';
+        
         this.init();
     }
 
@@ -333,6 +339,65 @@ class CoinankApp {
                 }
             }
         });
+
+        // 绑定下拉框筛选事件
+        this.bindFilterEvents();
+    }
+
+    bindFilterEvents() {
+        // 交易所筛选
+        const exchangeFilter = document.getElementById('exchangeFilter');
+        if (exchangeFilter) {
+            exchangeFilter.addEventListener('change', (e) => {
+                this.currentExchange = e.target.value;
+                this.applyFilters();
+            });
+        }
+
+        // 资产类型筛选
+        const assetFilter = document.getElementById('assetFilter');
+        if (assetFilter) {
+            assetFilter.addEventListener('change', (e) => {
+                this.currentAsset = e.target.value;
+                this.applyFilters();
+            });
+        }
+
+        // 时间周期筛选
+        const timeFilter = document.getElementById('timeFilter');
+        if (timeFilter) {
+            timeFilter.addEventListener('change', (e) => {
+                this.currentTimeframe = e.target.value;
+                this.applyFilters();
+            });
+        }
+
+        // 图表类型筛选
+        const chartTypeFilter = document.getElementById('chartTypeFilter');
+        if (chartTypeFilter) {
+            chartTypeFilter.addEventListener('change', (e) => {
+                this.currentChartType = e.target.value;
+                this.updateChartType();
+            });
+        }
+    }
+
+    applyFilters() {
+        // 这里实现筛选逻辑
+        console.log('应用筛选:', {
+            exchange: this.currentExchange,
+            asset: this.currentAsset,
+            timeframe: this.currentTimeframe
+        });
+        
+        // 更新所有图表
+        this.updateCharts();
+    }
+
+    updateChartType() {
+        // 更新图表类型
+        console.log('切换图表类型:', this.currentChartType);
+        this.updatePriceChart();
     }
 
     updateRangeHighlight() {
@@ -598,13 +663,13 @@ class CoinankApp {
         const endIndex = Math.ceil(totalDataPoints * this.timeRangeEnd / 100);
         const filteredPriceData = sortedPriceData.slice(startIndex, endIndex);
         
-        // 准备价格数据 - 按月精度显示
+        // 准备价格数据 - 按照图片格式显示时间
         const labels = filteredPriceData.map(item => {
             const date = new Date(item.time);
-            return date.toLocaleDateString('zh-CN', { 
-                year: 'numeric',
-                month: '2-digit'
-            });
+            return date.toLocaleDateString('en-US', { 
+                month: '2-digit',
+                day: '2-digit'
+            }).replace('/', '-');
         });
         
         const prices = filteredPriceData.map(item => item.price);
@@ -638,14 +703,14 @@ class CoinankApp {
         
         // 价格数据集
         if (this.showPrice) {
-            datasets.push({
+            const priceDataset = {
                 type: 'line',
                 label: `${this.currentToken} 价格`,
                 data: prices,
                 borderColor: '#00d4ff',
                 backgroundColor: gradient,
                 borderWidth: 2,
-                fill: true,
+                fill: this.currentChartType === 'area',
                 tension: 0.1,
                 pointRadius: 0,
                 pointHoverRadius: 6,
@@ -653,7 +718,15 @@ class CoinankApp {
                 pointHoverBorderColor: '#ffffff',
                 pointHoverBorderWidth: 2,
                 yAxisID: 'y'
-            });
+            };
+            
+            // 根据图表类型调整样式
+            if (this.currentChartType === 'line') {
+                priceDataset.fill = false;
+                priceDataset.borderWidth = 3;
+            }
+            
+            datasets.push(priceDataset);
         }
         
         // 持仓量数据集
@@ -771,10 +844,17 @@ class CoinankApp {
                             color: '#b8bcc8',
                             maxTicksLimit: 12,
                             padding: 0,
-                            callback: function(value) {
-                                // 自定义时间轴显示格式
+                            autoSkip: true,
+                            callback: function(value, index) {
+                                // 每隔一定间隔显示标签
                                 const label = this.getLabelForValue(value);
-                                return label;
+                                // 根据数据量动态调整显示频率
+                                const totalLabels = this.chart.data.labels.length;
+                                const skipInterval = Math.ceil(totalLabels / 12);
+                                if (index % skipInterval === 0) {
+                                    return label;
+                                }
+                                return '';
                             }
                         }
                     },
@@ -813,6 +893,53 @@ class CoinankApp {
                 elements: {
                     point: {
                         hoverRadius: 8
+                    }
+                },
+                onHover: (event, activeElements, chart) => {
+                    const ctx = chart.ctx;
+                    const chartArea = chart.chartArea;
+                    const x = event.x;
+                    const y = event.y;
+                    
+                    // 清除之前的绘制
+                    chart.draw();
+                    
+                    if (x >= chartArea.left && x <= chartArea.right && 
+                        y >= chartArea.top && y <= chartArea.bottom) {
+                        
+                        // 绘制十字虚线
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.lineWidth = 1;
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                        ctx.setLineDash([5, 5]);
+                        
+                        // 垂直线
+                        ctx.moveTo(x, chartArea.top);
+                        ctx.lineTo(x, chartArea.bottom);
+                        
+                        // 水平线
+                        ctx.moveTo(chartArea.left, y);
+                        ctx.lineTo(chartArea.right, y);
+                        
+                        ctx.stroke();
+                        ctx.restore();
+                        
+                        // 在左侧显示Y轴数据
+                        const yValue = chart.scales.y.getValueForPixel(y);
+                        if (yValue !== null && !isNaN(yValue)) {
+                            ctx.save();
+                            // 背景框
+                            ctx.fillStyle = 'rgba(0, 212, 255, 0.9)';
+                            ctx.fillRect(chartArea.left - 85, y - 12, 80, 24);
+                            // 文字
+                            ctx.fillStyle = '#ffffff';
+                            ctx.font = 'bold 12px Arial';
+                            ctx.textAlign = 'right';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText('$' + yValue.toFixed(8), chartArea.left - 8, y);
+                            ctx.restore();
+                        }
                     }
                 }
             }
@@ -933,19 +1060,44 @@ class CoinankApp {
                     backgroundColor: colors.slice(0, labels.length),
                     borderColor: '#ffffff',
                     borderWidth: 2,
-                    hoverBorderWidth: 3
+                    hoverBorderWidth: 3,
+                    hoverOffset: 15  // hover时外扩效果
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: {
+                    animateScale: true,
+                    animateRotate: true
+                },
                 plugins: {
                     legend: {
                         position: 'bottom',
                         labels: {
                             padding: 15,
                             usePointStyle: true,
-                            color: '#666'
+                            color: '#666',
+                            generateLabels: function(chart) {
+                                const data = chart.data;
+                                if (data.labels.length && data.datasets.length) {
+                                    const dataset = data.datasets[0];
+                                    const total = dataset.data.reduce((a, b) => a + b, 0);
+                                    return data.labels.map((label, i) => {
+                                        const value = dataset.data[i];
+                                        const percentage = ((value / total) * 100).toFixed(1);
+                                        return {
+                                            text: `${label} (${percentage}%)`,
+                                            fillStyle: dataset.backgroundColor[i],
+                                            strokeStyle: dataset.borderColor,
+                                            lineWidth: dataset.borderWidth,
+                                            hidden: isNaN(value),
+                                            index: i
+                                        };
+                                    });
+                                }
+                                return [];
+                            }
                         }
                     },
                     tooltip: {
@@ -962,7 +1114,47 @@ class CoinankApp {
                                 return `${context.label}: $${(context.parsed / 1e6).toFixed(1)}M (${percentage}%)`;
                             }
                         }
-                    }
+                    },
+                },
+                onAfterDraw: function(chart) {
+                    const ctx = chart.ctx;
+                    const chartArea = chart.chartArea;
+                    const dataset = chart.data.datasets[0];
+                    const meta = chart.getDatasetMeta(0);
+                    const total = dataset.data.reduce((a, b) => a + b, 0);
+                    
+                    meta.data.forEach((element, index) => {
+                        // 获取扇形的中心角度
+                        const model = element;
+                        const midAngle = (model.startAngle + model.endAngle) / 2;
+                        
+                        // 计算标签位置（在扇形外侧）
+                        const radius = model.outerRadius + 30;
+                        const x = model.x + Math.cos(midAngle) * radius;
+                        const y = model.y + Math.sin(midAngle) * radius;
+                        
+                        // 绘制标签背景
+                        ctx.save();
+                        const label = chart.data.labels[index];
+                        const value = dataset.data[index];
+                        const percentage = ((value / total) * 100).toFixed(1);
+                        const text = `${label}: ${percentage}%`;
+                        
+                        // 测量文字宽度
+                        ctx.font = 'bold 12px Arial';
+                        const textWidth = ctx.measureText(text).width;
+                        
+                        // 绘制背景框
+                        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                        ctx.fillRect(x - textWidth/2 - 5, y - 10, textWidth + 10, 20);
+                        
+                        // 绘制文字
+                        ctx.fillStyle = '#ffffff';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(text, x, y);
+                        ctx.restore();
+                    });
                 }
             }
         });
@@ -993,11 +1185,10 @@ class CoinankApp {
 
         const labels = filteredData.map(item => {
             const date = new Date(item.time);
-            return date.toLocaleDateString('zh-CN', {
+            return date.toLocaleDateString('en-US', {
                 month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit'
-            });
+                day: '2-digit'
+            }).replace('/', '-');
         });
 
         const netFlowValues = filteredData.map(item => item.value);
@@ -1072,7 +1263,21 @@ class CoinankApp {
                         cornerRadius: 8,
                         callbacks: {
                             label: function(context) {
-                                return `${context.dataset.label}: ${context.parsed.y.toFixed(2)}`;
+                                const value = context.parsed.y;
+                                let displayValue;
+                                
+                                // 单位换算：以美元为单位，以万和亿显示
+                                if (Math.abs(value) >= 100000000) {
+                                    // 亿
+                                    displayValue = (value / 100000000).toFixed(2) + '亿';
+                                } else if (Math.abs(value) >= 10000) {
+                                    // 万
+                                    displayValue = (value / 10000).toFixed(2) + '万';
+                                } else {
+                                    displayValue = value.toFixed(2);
+                                }
+                                
+                                return `${context.dataset.label}: $${displayValue}`;
                             }
                         }
                     },
@@ -1103,7 +1308,17 @@ class CoinankApp {
                         },
                         ticks: {
                             color: '#b8bcc8',
-                            maxTicksLimit: 8
+                            maxTicksLimit: 8,
+                            autoSkip: true,
+                            callback: function(value, index) {
+                                const label = this.getLabelForValue(value);
+                                const totalLabels = this.chart.data.labels.length;
+                                const skipInterval = Math.ceil(totalLabels / 8);
+                                if (index % skipInterval === 0) {
+                                    return label;
+                                }
+                                return '';
+                            }
                         }
                     },
                     y: {
@@ -1114,7 +1329,19 @@ class CoinankApp {
                         ticks: {
                             color: '#b8bcc8',
                             callback: function(value) {
-                                return value.toFixed(2);
+                                // 单位换算：以美元为单位，以万和亿显示
+                                if (Math.abs(value) >= 100000000) {
+                                    // 亿
+                                    return '$' + (value / 100000000).toFixed(1) + '亿';
+                                } else if (Math.abs(value) >= 10000) {
+                                    // 万
+                                    return '$' + (value / 10000).toFixed(1) + '万';
+                                } else if (Math.abs(value) >= 1000) {
+                                    // 千
+                                    return '$' + (value / 1000).toFixed(1) + 'K';
+                                } else {
+                                    return '$' + value.toFixed(0);
+                                }
                             }
                         }
                     }
@@ -1151,10 +1378,10 @@ class CoinankApp {
 
         const labels = filteredData.map(item => {
             const date = new Date(item.time);
-            return date.toLocaleDateString('zh-CN', {
+            return date.toLocaleDateString('en-US', {
                 month: '2-digit',
                 day: '2-digit'
-            });
+            }).replace('/', '-');
         });
 
         const values = filteredData.map(item => item.value);
@@ -1236,7 +1463,17 @@ class CoinankApp {
                         },
                         ticks: {
                             color: '#b8bcc8',
-                            maxTicksLimit: 10
+                            maxTicksLimit: 10,
+                            autoSkip: true,
+                            callback: function(value, index) {
+                                const label = this.getLabelForValue(value);
+                                const totalLabels = this.chart.data.labels.length;
+                                const skipInterval = Math.ceil(totalLabels / 10);
+                                if (index % skipInterval === 0) {
+                                    return label;
+                                }
+                                return '';
+                            }
                         }
                     },
                     y: {
