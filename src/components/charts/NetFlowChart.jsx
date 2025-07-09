@@ -27,13 +27,26 @@ const NetFlowChart = () => {
   
   const netFlowData = React.useMemo(() => {
     if (!marketData || !marketData.net_flow) return null
-    
+
     const flows = marketData.net_flow
-    const labels = flows.map(item => item.exchange)
-    const buyFlows = flows.map(item => item.buy_flow)
-    const sellFlows = flows.map(item => item.sell_flow)
-    const netFlows = flows.map(item => item.net_flow)
-    
+    if (!flows || flows.length === 0) return null
+
+    // 取最近的20个数据点用于显示
+    const recentFlows = flows.slice(-20)
+
+    const labels = recentFlows.map(item => {
+      const date = new Date(item.time)
+      return date.toLocaleDateString('zh-CN', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    })
+    const buyFlows = recentFlows.map(item => item.buy_flow)
+    const sellFlows = recentFlows.map(item => item.sell_flow)
+    const netFlows = recentFlows.map(item => item.net_flow)
+
     return {
       labels,
       datasets: [
@@ -54,10 +67,10 @@ const NetFlowChart = () => {
         {
           label: '净流入',
           data: netFlows,
-          backgroundColor: netFlows.map(value => 
+          backgroundColor: netFlows.map(value =>
             value >= 0 ? 'rgba(0, 212, 255, 0.6)' : 'rgba(255, 184, 0, 0.6)'
           ),
-          borderColor: netFlows.map(value => 
+          borderColor: netFlows.map(value =>
             value >= 0 ? 'rgba(0, 212, 255, 1)' : 'rgba(255, 184, 0, 1)'
           ),
           borderWidth: 1,

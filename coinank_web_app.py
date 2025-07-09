@@ -374,18 +374,53 @@ def process_data_for_web(chart_data, ticker_data, spot_data, oi_chart_data, volu
         else:
             stats['price_change_percent'] = 0
 
-        return {
-            'token': token,
-            'price_data': price_data,
-            'oi_data': oi_data,
-            'oi_time_series': oi_time_series,
-            'net_flow_time_series': net_flow_time_series,
-            'volume_time_series': volume_time_series,
-            'futures': futures_data,
-            'spot': spot_data_list,
-            'stats': stats,
-            'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
+        # 为前端React组件准备数据结构
+        # 将净流入时间序列数据转换为前端期望的格式
+        net_flow_chart_data = []
+        if net_flow_time_series:
+            # 取最近的数据点用于图表显示
+            recent_data = net_flow_time_series[-50:] if len(net_flow_time_series) > 50 else net_flow_time_series
+            for item in recent_data:
+                net_flow_chart_data.append({
+                    'time': item['time'],
+                    'buy_flow': item['buy_volume'],
+                    'sell_flow': item['sell_volume'],
+                    'net_flow': item['value'],
+                    'exchange': 'All'  # 因为这是聚合数据
+                })
+
+        # 将24H成交额数据转换为前端期望的格式
+        volume_chart_data = []
+        if spot_data_list:
+            # 按成交额排序，取前10名
+            sorted_spot = sorted(spot_data_list, key=lambda x: x.get('volume_24h', 0), reverse=True)[:10]
+            for item in sorted_spot:
+                volume_chart_data.append({
+                    'exchange': item['exchange'],
+                    'volume': item['volume_24h']
+                })
+
+        # 将期货数据转换为前端期望的格式
+        futures_markets = []
+        for item in futures_data:
+            futures_markets.append({
+                'exchange': item['exchange'],
+                'price': item['price'],
+                'change_24h': item.get('change_24h', 0),  # 如果没有涨跌幅数据，默认为0
+                'open_interest': item.get('open_interest', item.get('oi_usd', 0)),  # 使用oi_usd作为备选
+                'volume_24h': item.get('volume_24h', 0)  # 如果没有成交额数据，默认为0
+            })
+
+        # 将现货数据转换为前端期望的格式
+        spot_markets = []
+        for item in spot_data_list:
+            spot_markets.append({
+                'exchange': item['exchange'],
+                'price': item['price'],
+                'change_24h': item.get('change_24h', 0),  # 如果没有涨跌幅数据，默认为0
+                'volume_24h': item['volume_24h'],
+                'depth': item.get('depth', 0)  # 如果没有深度数据，默认为0
+            })
 
         return {
             'token': token,
@@ -397,7 +432,12 @@ def process_data_for_web(chart_data, ticker_data, spot_data, oi_chart_data, volu
             'futures': futures_data,
             'spot': spot_data_list,
             'stats': stats,
-            'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            'update_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            # 为React前端添加的数据结构
+            'net_flow': net_flow_chart_data,
+            'volume_24h': volume_chart_data,
+            'futures_markets': futures_markets,
+            'spot_markets': spot_markets
         }
 
     except Exception as e:

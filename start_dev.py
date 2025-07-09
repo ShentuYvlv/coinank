@@ -10,6 +10,26 @@ import threading
 import time
 import signal
 import sys
+import platform
+
+def run_npm_command(command_args):
+    """Run npm command with Windows compatibility"""
+    is_windows = platform.system() == "Windows"
+
+    if is_windows:
+        # 在Windows下使用shell=True并指定完整的npm路径
+        try:
+            # 首先尝试直接使用npm
+            result = subprocess.run(command_args, shell=True, check=True)
+            return result
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            # 如果失败，尝试使用npm.cmd
+            npm_cmd = command_args[0] + ".cmd"
+            modified_args = [npm_cmd] + command_args[1:]
+            return subprocess.run(modified_args, shell=True, check=True)
+    else:
+        # 在非Windows系统下正常执行
+        return subprocess.run(command_args, check=True)
 
 def run_backend():
     """Run the Python Flask backend"""
@@ -19,7 +39,7 @@ def run_backend():
 def run_frontend():
     """Run the React frontend with Vite"""
     print("⚡ Starting React frontend...")
-    subprocess.run(["npm", "run", "dev"])
+    run_npm_command(["npm", "run", "dev"])
 
 def signal_handler(sig, frame):
     """Handle Ctrl+C gracefully"""
@@ -35,8 +55,13 @@ if __name__ == "__main__":
     # Check if npm dependencies are installed
     if not os.path.exists("node_modules"):
         print("📦 Installing npm dependencies...")
-        subprocess.run(["npm", "install"])
-        print("")
+        try:
+            run_npm_command(["npm", "install"])
+            print("✅ Dependencies installed successfully!\n")
+        except subprocess.CalledProcessError as e:
+            print(f"❌ Failed to install dependencies: {e}")
+            print("Please run 'npm install' manually and try again.")
+            sys.exit(1)
     
     # Start backend in a separate thread
     backend_thread = threading.Thread(target=run_backend)

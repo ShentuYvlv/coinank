@@ -32,19 +32,23 @@ const VolumeChart = () => {
   
   const volumeData = React.useMemo(() => {
     if (!marketData || !marketData.volume_24h) return null
-    
-    const volumes = marketData.volume_24h.slice(0, 10)
-    const labels = volumes.map(item => item.exchange)
-    const data = volumes.map(item => item.volume)
-    
+
+    const volumes = marketData.volume_24h
+    if (!volumes || volumes.length === 0) return null
+
+    // 取前10个交易所的数据
+    const topVolumes = volumes.slice(0, 10)
+    const labels = topVolumes.map(item => item.exchange)
+    const data = topVolumes.map(item => item.volume)
+
     return {
       labels,
       datasets: [
         {
           label: '24H成交额',
           data: data,
-          backgroundColor: chartType === 'bar' 
-            ? 'rgba(0, 212, 255, 0.6)' 
+          backgroundColor: chartType === 'bar'
+            ? 'rgba(0, 212, 255, 0.6)'
             : 'rgba(0, 212, 255, 0.2)',
           borderColor: 'rgba(0, 212, 255, 1)',
           borderWidth: 2,
