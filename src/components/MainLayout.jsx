@@ -5,7 +5,6 @@ import StatsCards from './StatsCards'
 import ChartsSection from './ChartsSection'
 import TablesSection from './TablesSection'
 import LoadingOverlay from './LoadingOverlay'
-import ConnectionStatus from './ConnectionStatus'
 import { useStore } from '../store/useStore'
 
 function MainLayout() {
@@ -21,7 +20,6 @@ function MainLayout() {
         <TablesSection />
       </Container>
 
-      <ConnectionStatus />
       <LoadingOverlay />
     </Box>
   )

@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
-import io from 'socket.io-client'
 import axios from 'axios'
 
 const useStore = create(
@@ -8,14 +7,12 @@ const useStore = create(
     // State
     currentToken: 'PEPE',
     supportedTokens: ['PEPE'],
-    socket: null,
     data: null,
     marketData: null,
     isLoading: false,
-    connectionStatus: 'disconnected',
-    isConnected: false,
     lastUpdate: null,
     isPageVisible: true,
+    refreshInterval: null,
     
     // Chart state
     showPrice: true,
@@ -39,9 +36,10 @@ const useStore = create(
 
     // Actions
     initializeApp: () => {
-      const { connectWebSocket, setupPageVisibility } = get()
-      connectWebSocket()
+      const { loadTokenData, setupPageVisibility, startDataRefresh, currentToken } = get()
+      loadTokenData(currentToken)
       setupPageVisibility()
+      startDataRefresh()
     },
     
     setupPageVisibility: () => {
@@ -62,50 +60,29 @@ const useStore = create(
       }
     },
 
-    connectWebSocket: () => {
-      const socket = io(window.location.origin)
+    startDataRefresh: () => {
+      const { refreshInterval, stopDataRefresh } = get()
       
-      socket.on('connect', () => {
-        console.log('✅ WebSocket connected')
-        set({ 
-          socket, 
-          connectionStatus: 'connected',
-          isConnected: true
-        })
-        
-        const { currentToken } = get()
-        socket.emit('subscribe_token', { token: currentToken })
-      })
+      if (refreshInterval) {
+        stopDataRefresh()
+      }
       
-      socket.on('disconnect', () => {
-        console.log('❌ WebSocket disconnected')
-        set({ connectionStatus: 'disconnected', isConnected: false })
-      })
-      
-      socket.on('data_update', (data) => {
-        const { currentToken } = get()
-        if (data.token === currentToken) {
-          set({ 
-            data: data.data,
-            marketData: data.data,
-            lastUpdate: new Date()
-          })
+      const interval = setInterval(() => {
+        const { refreshData, isPageVisible } = get()
+        if (isPageVisible) {
+          refreshData()
         }
-      })
+      }, 5 * 60 * 1000) // 5 minutes
       
-      socket.on('token_data', (data) => {
-        const { currentToken } = get()
-        if (data.token === currentToken) {
-          set({ 
-            data: data.data,
-            marketData: data.data,
-            lastUpdate: new Date(),
-            isLoading: false
-          })
-        }
-      })
-      
-      set({ socket })
+      set({ refreshInterval: interval })
+    },
+    
+    stopDataRefresh: () => {
+      const { refreshInterval } = get()
+      if (refreshInterval) {
+        clearInterval(refreshInterval)
+        set({ refreshInterval: null })
+      }
     },
 
     loadTokenData: async (token) => {
@@ -134,15 +111,10 @@ const useStore = create(
     },
 
     switchToken: async (token) => {
-      const { currentToken, socket, loadTokenData } = get()
+      const { currentToken, loadTokenData } = get()
       if (token === currentToken) return
       
       set({ currentToken: token })
-      
-      if (socket) {
-        socket.emit('subscribe_token', { token })
-      }
-      
       await loadTokenData(token)
     },
 
@@ -172,10 +144,19 @@ const useStore = create(
     formatPrice: (price) => {
       if (!price) return '$0.00'
       
-      if (price < 0.001) {
+      // 不截断价格，根据价格大小自动调整小数位数
+      if (price < 0.00001) {
+        return '$' + price.toFixed(10)
+      } else if (price < 0.0001) {
         return '$' + price.toFixed(8)
+      } else if (price < 0.001) {
+        return '$' + price.toFixed(6)
+      } else if (price < 0.01) {
+        return '$' + price.toFixed(5)
       } else if (price < 1) {
         return '$' + price.toFixed(4)
+      } else if (price < 100) {
+        return '$' + price.toFixed(3)
       } else {
         return '$' + price.toFixed(2)
       }
@@ -184,14 +165,31 @@ const useStore = create(
     formatCurrency: (amount) => {
       if (!amount) return '$0.00'
       
-      if (amount >= 1e9) {
-        return '$' + (amount / 1e9).toFixed(1) + 'B'
-      } else if (amount >= 1e6) {
-        return '$' + (amount / 1e6).toFixed(1) + 'M'
-      } else if (amount >= 1e3) {
-        return '$' + (amount / 1e3).toFixed(1) + 'K'
+      // 转换为亿和万
+      if (amount >= 1e8) {
+        return '$' + (amount / 1e8).toFixed(2) + '亿'
+      } else if (amount >= 1e4) {
+        return '$' + (amount / 1e4).toFixed(2).replace(/\.?0+$/, '') + '万'
       } else {
         return '$' + amount.toFixed(2)
+      }
+    },
+    
+    formatCurrencyWithComma: (amount) => {
+      if (!amount) return '$0.00'
+      
+      // 转换为亿和万，使用逗号格式化
+      if (amount >= 1e8) {
+        const billions = (amount / 1e8).toFixed(2)
+        return '$' + billions + '亿'
+      } else if (amount >= 1e4) {
+        const thousands = (amount / 1e4).toFixed(2)
+        // 添加千位分隔符
+        const [intPart, decPart] = thousands.split('.')
+        const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+        return '$' + formattedInt + (decPart ? '.' + decPart : '') + '万'
+      } else {
+        return '$' + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       }
     }
   }))

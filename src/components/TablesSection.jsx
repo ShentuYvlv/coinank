@@ -19,25 +19,7 @@ import { OpenInNew } from '@mui/icons-material'
 import { useStore } from '../store/useStore'
 
 const TablesSection = () => {
-  const { marketData, currentToken } = useStore()
-  
-  const formatNumber = (num) => {
-    if (!num) return '-'
-    return new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2,
-    }).format(num)
-  }
-  
-  const formatCurrency = (num) => {
-    if (!num) return '-'
-    return new Intl.NumberFormat('zh-CN', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(num)
-  }
+  const { marketData, currentToken, formatPrice, formatCurrencyWithComma } = useStore()
   
   const formatPercent = (num) => {
     if (num === null || num === undefined) return '-'
@@ -85,10 +67,10 @@ const TablesSection = () => {
                   futuresData.map((row, index) => (
                     <TableRow key={index} hover>
                       <TableCell>{row.exchange}</TableCell>
-                      <TableCell align="right">${formatNumber(row.price)}</TableCell>
+                      <TableCell align="right">{formatPrice(row.price)}</TableCell>
                       <TableCell align="right">{formatPercent(row.change_24h)}</TableCell>
-                      <TableCell align="right">{formatCurrency(row.open_interest)}</TableCell>
-                      <TableCell align="right">{formatCurrency(row.volume_24h)}</TableCell>
+                      <TableCell align="right">{formatCurrencyWithComma(row.open_interest)}</TableCell>
+                      <TableCell align="right">{formatCurrencyWithComma(row.volume_24h)}</TableCell>
                       <TableCell align="center">
                         <Tooltip title="查看详情">
                           <IconButton size="small" color="primary">
@@ -139,10 +121,10 @@ const TablesSection = () => {
                   spotData.map((row, index) => (
                     <TableRow key={index} hover>
                       <TableCell>{row.exchange}</TableCell>
-                      <TableCell align="right">${formatNumber(row.price)}</TableCell>
+                      <TableCell align="right">{formatPrice(row.price)}</TableCell>
                       <TableCell align="right">{formatPercent(row.change_24h)}</TableCell>
-                      <TableCell align="right">{formatCurrency(row.volume_24h)}</TableCell>
-                      <TableCell align="right">{formatCurrency(row.depth)}</TableCell>
+                      <TableCell align="right">{formatCurrencyWithComma(row.volume_24h)}</TableCell>
+                      <TableCell align="right">{formatCurrencyWithComma(row.depth)}</TableCell>
                       <TableCell align="center">
                         <Tooltip title="查看详情">
                           <IconButton size="small" color="primary">

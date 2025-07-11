@@ -4,6 +4,7 @@ import PriceChart from './charts/PriceChart'
 import OIDistributionChart from './charts/OIDistributionChart'
 import NetFlowChart from './charts/NetFlowChart'
 import VolumeChart from './charts/VolumeChart'
+import Volume24hChart from './charts/Volume24hChart'
 import { useStore } from '../store/useStore'
 
 function ChartsSection() {
@@ -24,12 +25,19 @@ function ChartsSection() {
       </Grid>
 
       {/* Net Flow and Volume Charts in same row */}
-      <Grid container spacing={2}>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} lg={6}>
           <NetFlowChart />
         </Grid>
         <Grid item xs={12} lg={6}>
           <VolumeChart />
+        </Grid>
+      </Grid>
+      
+      {/* 24H Volume Chart */}
+      <Grid container spacing={2}>
+        <Grid item xs={12}>
+          <Volume24hChart />
         </Grid>
       </Grid>
     </Box>
