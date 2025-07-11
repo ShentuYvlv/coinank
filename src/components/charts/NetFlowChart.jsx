@@ -10,7 +10,9 @@ import {
   Select,
   MenuItem,
   Slider,
-  IconButton
+  IconButton,
+  FormControlLabel,
+  Switch
 } from '@mui/material'
 import { ZoomOutMap as ZoomOutIcon } from '@mui/icons-material'
 import {
@@ -52,6 +54,12 @@ const NetFlowChart = () => {
   const [timeRangeStart, setTimeRangeStart] = useState(0)
   const [timeRangeEnd, setTimeRangeEnd] = useState(100)
 
+  // 控制数据集显示的状态
+  const [showLongRatio, setShowLongRatio] = useState(true)
+  const [showShortRatio, setShowShortRatio] = useState(true)
+  const [showNetFlow, setShowNetFlow] = useState(true)
+  const [showPrice, setShowPrice] = useState(true)
+
   // 时间周期选项
   const intervalOptions = [
     { value: '5m', label: '5分钟' },
@@ -65,7 +73,7 @@ const NetFlowChart = () => {
 
   // 交易所选项
   const exchangeOptions = [
-    { value: '', label: 'ALL' },
+    { value: 'ALL', label: 'ALL' },
     { value: 'Binance', label: 'Binance' },
     { value: 'OKX', label: 'OKX' },
     { value: 'Bybit', label: 'Bybit' },
@@ -167,67 +175,74 @@ const NetFlowChart = () => {
     const netFlows = buyFlows.map((buy, index) => buy - sellFlows[index])
     const priceData = filteredPrices.map(price => Number(price) || 0)
 
+    const datasets = []
+
+    if (showLongRatio) {
+      datasets.push({
+        label: '多头比例',
+        data: buyFlows,
+        backgroundColor: 'rgba(0, 255, 136, 0.6)',
+        borderColor: 'rgba(0, 255, 136, 1)',
+        borderWidth: 1,
+        type: 'bar',
+        yAxisID: 'y',
+      })
+    }
+
+    if (showShortRatio) {
+      datasets.push({
+        label: '空头比例',
+        data: sellFlows,
+        backgroundColor: 'rgba(255, 71, 87, 0.6)',
+        borderColor: 'rgba(255, 71, 87, 1)',
+        borderWidth: 1,
+        type: 'bar',
+        yAxisID: 'y',
+      })
+    }
+
+    if (showNetFlow) {
+      datasets.push({
+        label: '净流入差值',
+        data: netFlows,
+        backgroundColor: netFlows.map(value =>
+          value >= 0 ? 'rgba(0, 212, 255, 0.6)' : 'rgba(255, 184, 0, 0.6)'
+        ),
+        borderColor: netFlows.map(value =>
+          value >= 0 ? 'rgba(0, 212, 255, 1)' : 'rgba(255, 184, 0, 1)'
+        ),
+        borderWidth: 1,
+        type: 'bar',
+        yAxisID: 'y',
+      })
+    }
+
+    if (showPrice) {
+      datasets.push({
+        label: '价格',
+        data: priceData,
+        borderColor: 'rgba(255, 206, 84, 1)',
+        backgroundColor: 'rgba(255, 206, 84, 0.2)',
+        borderWidth: 2,
+        type: 'line',
+        yAxisID: 'y1',
+        fill: false,
+        tension: 0.1,
+      })
+    }
+
     return {
       labels,
-      datasets: [
-        {
-          label: '多头比例',
-          data: buyFlows,
-          backgroundColor: 'rgba(0, 255, 136, 0.6)',
-          borderColor: 'rgba(0, 255, 136, 1)',
-          borderWidth: 1,
-          type: 'bar',
-          yAxisID: 'y',
-        },
-        {
-          label: '空头比例',
-          data: sellFlows,
-          backgroundColor: 'rgba(255, 71, 87, 0.6)',
-          borderColor: 'rgba(255, 71, 87, 1)',
-          borderWidth: 1,
-          type: 'bar',
-          yAxisID: 'y',
-        },
-        {
-          label: '净流入差值',
-          data: netFlows,
-          backgroundColor: netFlows.map(value =>
-            value >= 0 ? 'rgba(0, 212, 255, 0.6)' : 'rgba(255, 184, 0, 0.6)'
-          ),
-          borderColor: netFlows.map(value =>
-            value >= 0 ? 'rgba(0, 212, 255, 1)' : 'rgba(255, 184, 0, 1)'
-          ),
-          borderWidth: 1,
-          type: 'bar',
-          yAxisID: 'y',
-        },
-        {
-          label: '价格',
-          data: priceData,
-          borderColor: 'rgba(255, 206, 84, 1)',
-          backgroundColor: 'rgba(255, 206, 84, 0.2)',
-          borderWidth: 2,
-          type: 'line',
-          yAxisID: 'y1',
-          fill: false,
-          tension: 0.1,
-        },
-      ],
+      datasets,
     }
-  }, [data, timeRangeStart, timeRangeEnd])
+  }, [data, timeRangeStart, timeRangeEnd, showLongRatio, showShortRatio, showNetFlow, showPrice, theme])
   
   const options = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: 'top',
-        labels: {
-          color: theme.palette.text.primary,
-          font: {
-            size: 12,
-          },
-        },
+        display: false, // 隐藏图例但保留数据
       },
       title: {
         display: false,
@@ -387,8 +402,51 @@ const NetFlowChart = () => {
             </Typography>
 
             {/* Right side controls */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              {/* 可以添加其他控制按钮 */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={showLongRatio}
+                    onChange={(e) => setShowLongRatio(e.target.checked)}
+                    size="small"
+                  />
+                }
+                label="多头"
+                labelPlacement="end"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={showShortRatio}
+                    onChange={(e) => setShowShortRatio(e.target.checked)}
+                    size="small"
+                  />
+                }
+                label="空头"
+                labelPlacement="end"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={showNetFlow}
+                    onChange={(e) => setShowNetFlow(e.target.checked)}
+                    size="small"
+                  />
+                }
+                label="净流入"
+                labelPlacement="end"
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={showPrice}
+                    onChange={(e) => setShowPrice(e.target.checked)}
+                    size="small"
+                  />
+                }
+                label="价格"
+                labelPlacement="end"
+              />
             </Box>
           </Box>
         }

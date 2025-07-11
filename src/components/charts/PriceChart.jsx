@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react'
+import React, { useRef, useEffect, useState } from 'react'
 import {
   Card,
   CardHeader,
@@ -31,6 +31,7 @@ import {
 } from 'chart.js'
 import zoomPlugin from 'chartjs-plugin-zoom'
 import { useStore } from '../../store/useStore'
+import axios from 'axios'
 
 ChartJS.register(
   CategoryScale,
@@ -47,6 +48,10 @@ ChartJS.register(
 
 function PriceChart() {
   const chartRef = useRef(null)
+  const [apiData, setApiData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+
   const {
     data,
     showPrice,
@@ -57,6 +62,7 @@ function PriceChart() {
     currentAsset,
     currentTimeframe,
     currentChartType,
+    currentToken,
     setShowPrice,
     setShowOI,
     setTimeRange,
@@ -66,52 +72,119 @@ function PriceChart() {
     setCurrentChartType,
   } = useStore()
 
+
+
+  // 获取合约持仓量数据
+  const fetchOpenInterestData = async () => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await axios.get(`/api/openinterest/${currentToken}`, {
+        params: {
+          interval: currentTimeframe,
+          type: currentAsset.toUpperCase()
+        }
+      })
+
+      if (response.data && response.data.success) {
+        setApiData(response.data.data)
+      } else {
+        throw new Error(response.data?.error || '数据获取失败')
+      }
+    } catch (err) {
+      console.error('Failed to fetch open interest data:', err)
+      setError('加载合约持仓量数据失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 当时间周期变化时重新获取数据
+  useEffect(() => {
+    if (currentToken && currentTimeframe) {
+      fetchOpenInterestData()
+    }
+  }, [currentToken, currentTimeframe, currentAsset])
+
   const handleResetZoom = () => {
     if (chartRef.current) {
       chartRef.current.resetZoom()
     }
   }
 
-  if (!data) return null
+  // 优先使用API数据，如果没有则使用原来的数据
+  let labels, prices, oiValues
 
-  const priceData = data.price_data || []
-  const oiTimeSeriesData = data.oi_time_series || []
+  if (apiData && apiData.tss && apiData.dataValues) {
+    // 使用API数据
+    const timestamps = apiData.tss || []
+    const pricesFromAPI = apiData.prices || []
+    const exchangeData = apiData.dataValues[currentExchange] || []
 
-  // Sort and filter data based on time range
-  const sortedPriceData = [...priceData].sort((a, b) => new Date(a.time) - new Date(b.time))
-  const totalDataPoints = sortedPriceData.length
-  const startIndex = Math.floor(totalDataPoints * timeRangeStart / 100)
-  const endIndex = Math.ceil(totalDataPoints * timeRangeEnd / 100)
-  const filteredPriceData = sortedPriceData.slice(startIndex, endIndex)
+    // 根据时间范围过滤数据
+    const totalDataPoints = timestamps.length
+    const startIndex = Math.floor(totalDataPoints * timeRangeStart / 100)
+    const endIndex = Math.ceil(totalDataPoints * timeRangeEnd / 100)
 
-  // Prepare chart data
-  const labels = filteredPriceData.map(item => {
-    const date = new Date(item.time)
-    return date.toLocaleDateString('en-US', {
-      month: '2-digit',
-      day: '2-digit'
-    }).replace('/', '-')
-  })
+    const filteredTimestamps = timestamps.slice(startIndex, endIndex)
+    const filteredPrices = pricesFromAPI.slice(startIndex, endIndex)
+    const filteredOiValues = exchangeData.slice(startIndex, endIndex)
 
-  const prices = filteredPriceData.map(item => item.price)
-  
-  const oiValues = filteredPriceData.map(item => {
-    const timestamp = new Date(item.time).getTime()
-    let closestOI = null
-    let minTimeDiff = Infinity
-    
-    oiTimeSeriesData.forEach(oiItem => {
-      const oiTimestamp = new Date(oiItem.time).getTime()
-      const timeDiff = Math.abs(timestamp - oiTimestamp)
-      if (timeDiff < minTimeDiff) {
-        minTimeDiff = timeDiff
-        closestOI = oiItem.value
-      }
+    labels = filteredTimestamps.map(timestamp => {
+      const date = new Date(timestamp)
+      return date.toLocaleDateString('zh-CN', {
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
     })
-    
-    return closestOI || 0
-  })
 
+    prices = filteredPrices.map(price => Number(price) || 0)
+    oiValues = filteredOiValues.map(value => Number(value) || 0)
+  } else if (data) {
+    // 使用原来的数据作为后备
+    const priceData = data.price_data || []
+    const oiTimeSeriesData = data.oi_time_series || []
+
+    // Sort and filter data based on time range
+    const sortedPriceData = [...priceData].sort((a, b) => new Date(a.time) - new Date(b.time))
+    const totalDataPoints = sortedPriceData.length
+    const startIndex = Math.floor(totalDataPoints * timeRangeStart / 100)
+    const endIndex = Math.ceil(totalDataPoints * timeRangeEnd / 100)
+    const filteredPriceData = sortedPriceData.slice(startIndex, endIndex)
+
+    // Prepare chart data
+    labels = filteredPriceData.map(item => {
+      const date = new Date(item.time)
+      return date.toLocaleDateString('en-US', {
+        month: '2-digit',
+        day: '2-digit'
+      }).replace('/', '-')
+    })
+
+    prices = filteredPriceData.map(item => item.price)
+
+    oiValues = filteredPriceData.map(item => {
+      const timestamp = new Date(item.time).getTime()
+      let closestOI = null
+      let minTimeDiff = Infinity
+
+      oiTimeSeriesData.forEach(oiItem => {
+        const oiTimestamp = new Date(oiItem.time).getTime()
+        const timeDiff = Math.abs(timestamp - oiTimestamp)
+        if (timeDiff < minTimeDiff) {
+          minTimeDiff = timeDiff
+          closestOI = oiItem.value
+        }
+      })
+
+      return closestOI || 0
+    })
+  } else {
+    return null
+  }
   const chartData = {
     labels,
     datasets: []
@@ -154,8 +227,7 @@ function PriceChart() {
     },
     plugins: {
       legend: {
-        display: true,
-        position: 'top',
+        display: false, // 隐藏图例但保留数据
       },
       tooltip: {
         backgroundColor: 'rgba(37, 40, 54, 0.95)',
@@ -252,7 +324,7 @@ function PriceChart() {
                 </Select>
               </FormControl>
 
-              <FormControl size="small">
+              {/* <FormControl size="small">
                 <Select
                   value={currentAsset}
                   onChange={(e) => setCurrentAsset(e.target.value)}
@@ -262,7 +334,7 @@ function PriceChart() {
                   <MenuItem value="btc">BTC</MenuItem>
                   <MenuItem value="eth">ETH</MenuItem>
                 </Select>
-              </FormControl>
+              </FormControl> */}
 
               <FormControl size="small">
                 <Select
@@ -270,10 +342,13 @@ function PriceChart() {
                   onChange={(e) => setCurrentTimeframe(e.target.value)}
                   sx={{ minWidth: 80 }}
                 >
-                  <MenuItem value="1d">1d</MenuItem>
-                  <MenuItem value="7d">7d</MenuItem>
-                  <MenuItem value="30d">30d</MenuItem>
-                  <MenuItem value="all">ALL</MenuItem>
+                  <MenuItem value="5m">5分钟</MenuItem>
+                  <MenuItem value="15m">15分钟</MenuItem>
+                  <MenuItem value="30m">30分钟</MenuItem>
+                  <MenuItem value="1h">1小时</MenuItem>
+                  <MenuItem value="4h">4小时</MenuItem>
+                  <MenuItem value="12h">12小时</MenuItem>
+                  <MenuItem value="1d">1天</MenuItem>
                 </Select>
               </FormControl>
 
@@ -292,7 +367,7 @@ function PriceChart() {
 
             {/* Center title */}
             <Typography variant="h6" sx={{ flex: 1, textAlign: 'center' }}>
-              PEPE 价格走势图
+              PEPE 合约持仓量变化图
             </Typography>
 
             {/* Right side controls */}
