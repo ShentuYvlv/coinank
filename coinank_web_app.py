@@ -11,8 +11,7 @@ import json
 import socket
 import threading
 from datetime import datetime
-from flask import Flask, render_template, jsonify, request
-from flask_socketio import SocketIO, emit
+from flask import Flask, jsonify, request, send_from_directory
 import requests
 import warnings
 warnings.filterwarnings('ignore')
@@ -29,7 +28,6 @@ from coin_api import CoinankAPI
 # Flask应用配置
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'coinank-web-app-secret-key'
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # 全局变量
 api_client = None
@@ -37,7 +35,8 @@ supported_tokens = ["PEPE"]  # 暂时只支持PEPE
 current_token = "PEPE"
 data_cache = {}
 last_update_time = {}
-CACHE_DURATION = 60  # 缓存时间（秒）
+CACHE_DURATION = 300  # 缓存时间（秒）- 5分钟
+update_timer = None
 
 def check_port_available(port):
     """检查端口是否可用 - 通过尝试绑定端口"""
@@ -470,12 +469,14 @@ def process_data_for_web(chart_data, ticker_data, spot_data, oi_chart_data, volu
 
 @app.route('/')
 def index():
-    """主页"""
-    # 将支持的代币列表转换为JSON字符串
-    tokens_json = json.dumps(supported_tokens)
-    return render_template('index.html', 
-                         supported_tokens=tokens_json,
-                         current_token=current_token)
+    """主页 - 返回简单的API状态页面"""
+    return jsonify({
+        'message': 'Coinank API Server',
+        'status': 'running',
+        'supported_tokens': supported_tokens,
+        'current_token': current_token,
+        'frontend_url': 'http://localhost:3000'
+    })
 
 @app.route('/api/tokens')
 def get_tokens():
@@ -514,23 +515,17 @@ def refresh_token_data(token):
             'success': False,
             'error': f'Token {token} not supported'
         }), 400
-    
+
     # 清除缓存
     cache_key = f"{token}_data"
     if cache_key in data_cache:
         del data_cache[cache_key]
     if cache_key in last_update_time:
         del last_update_time[cache_key]
-    
+
     # 重新获取数据
     data = get_token_data(token)
     if data:
-        # 通过WebSocket广播更新
-        socketio.emit('data_update', {
-            'token': token,
-            'data': data
-        })
-        
         return jsonify({
             'success': True,
             'data': data
@@ -541,65 +536,103 @@ def refresh_token_data(token):
             'error': 'Failed to refresh token data'
         }), 500
 
-@socketio.on('connect')
-def handle_connect():
-    """WebSocket连接事件"""
-    print('Client connected')
-    emit('connected', {'message': 'Connected to Coinank Web App'})
+@app.route('/api/volume24h/<token>')
+def get_volume24h_data(token):
+    """获取24H成交量数据"""
+    if token not in supported_tokens:
+        return jsonify({
+            'success': False,
+            'error': f'Token {token} not supported'
+        }), 400
 
-@socketio.on('disconnect')
-def handle_disconnect():
-    """WebSocket断开连接事件"""
-    print('Client disconnected')
+    # 获取请求参数
+    exchange_name = request.args.get('exchangeName', 'ALL')
+    interval = request.args.get('interval', '1d')
 
-@socketio.on('subscribe_token')
-def handle_subscribe_token(data):
-    """订阅特定代币的实时数据"""
-    token = data.get('token', 'PEPE')
-    if token in supported_tokens:
-        token_data = get_token_data(token)
-        if token_data:
-            emit('token_data', {
-                'token': token,
-                'data': token_data
-            })
+    # 构建缓存键
+    cache_key = f"{token}_volume24h_{exchange_name}_{interval}"
+    current_time = time.time()
+
+    # 检查缓存
+    if (cache_key in data_cache and
+        cache_key in last_update_time and
+        current_time - last_update_time[cache_key] < CACHE_DURATION):
+        print(f"📊 返回缓存的24H成交量数据: {token}")
+        return jsonify({
+            'success': True,
+            'data': data_cache[cache_key]
+        })
+
+    # 获取新数据
+    if api_client:
+        try:
+            volume_data = api_client.fetch_volume_chart(token, exchange_name, interval)
+            if volume_data and volume_data.get('success'):
+                # 缓存数据
+                data_cache[cache_key] = volume_data
+                last_update_time[cache_key] = current_time
+                print(f"✅ 24H成交量数据获取成功: {token}")
+                return jsonify({
+                    'success': True,
+                    'data': volume_data
+                })
+            else:
+                print(f"❌ 24H成交量数据获取失败: {token}")
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to fetch volume data'
+                }), 500
+        except Exception as e:
+            print(f"❌ 24H成交量数据获取异常: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+    else:
+        return jsonify({
+            'success': False,
+            'error': 'API client not initialized'
+        }), 500
+
+def schedule_data_refresh():
+    """定时刷新数据"""
+    global update_timer
+
+    def refresh_all_tokens():
+        """刷新所有支持的代币数据"""
+        try:
+            for token in supported_tokens:
+                print(f"🔄 定时刷新 {token} 数据...")
+                # 清除缓存
+                cache_keys_to_remove = [key for key in data_cache.keys() if key.startswith(f"{token}_")]
+                for key in cache_keys_to_remove:
+                    del data_cache[key]
+                    if key in last_update_time:
+                        del last_update_time[key]
+
+                # 重新获取数据
+                data = get_token_data(token)
+                if data:
+                    print(f"✅ {token} 数据刷新成功")
+                else:
+                    print(f"❌ {token} 数据刷新失败")
+        except Exception as e:
+            print(f"❌ 定时刷新数据时出错: {e}")
+
+        # 安排下一次刷新
+        schedule_data_refresh()
+
+    # 5分钟后执行刷新
+    update_timer = threading.Timer(300.0, refresh_all_tokens)  # 300秒 = 5分钟
+    update_timer.daemon = True
+    update_timer.start()
+    print("⏰ 已安排5分钟后的数据刷新")
 
 def start_background_tasks():
     """启动后台任务"""
-    def update_data():
-        """定期更新数据"""
-        while True:
-            try:
-                # 只更新PEPE数据
-                token = "PEPE"
-                # 清除缓存以获取最新数据
-                cache_key = f"{token}_data"
-                if cache_key in data_cache:
-                    del data_cache[cache_key]
-                if cache_key in last_update_time:
-                    del last_update_time[cache_key]
-                
-                # 获取新数据
-                data = get_token_data(token)
-                if data:
-                    # 广播更新
-                    socketio.emit('data_update', {
-                        'token': token,
-                        'data': data
-                    })
-                    print(f"✅ {token} 数据更新成功")
-                else:
-                    print(f"❌ {token} 数据更新失败")
-                
-                time.sleep(300)  # 每5分钟更新一次
-            except Exception as e:
-                print(f"❌ 后台更新任务出错: {e}")
-                time.sleep(60)  # 出错后等待1分钟
-    
-    # 启动后台线程
-    thread = threading.Thread(target=update_data)
-    thread.daemon = True
-    thread.start()
+    # 启动定时刷新
+    schedule_data_refresh()
+    print("🔄 后台数据刷新任务已启动")
 
 def kill_process_on_port(port):
     """终止占用端口的进程"""
@@ -667,7 +700,7 @@ if __name__ == '__main__':
     
     try:
         # 启动Flask应用
-        socketio.run(app, host='127.0.0.1', port=port, debug=False, allow_unsafe_werkzeug=True)
+        app.run(host='127.0.0.1', port=port, debug=False)
     except OSError as e:
         if "Address already in use" in str(e):
             print(f"❌ 端口{port}被占用，尝试使用其他端口...")
@@ -676,7 +709,7 @@ if __name__ == '__main__':
                 if check_port_available(backup_port):
                     print(f"✅ 使用备用端口{backup_port}")
                     print(f"🌐 访问地址: http://localhost:{backup_port}")
-                    socketio.run(app, host='127.0.0.1', port=backup_port, debug=False, allow_unsafe_werkzeug=True)
+                    app.run(host='127.0.0.1', port=backup_port, debug=False)
                     break
             else:
                 print("❌ 无法找到可用端口，请手动终止占用端口的进程后重试")
@@ -694,4 +727,4 @@ if __name__ == '__main__':
         print("1. 检查端口是否被占用")
         print("2. 检查防火墙设置")
         print("3. 尝试以管理员权限运行")
-        sys.exit(1) 
+        sys.exit(1)

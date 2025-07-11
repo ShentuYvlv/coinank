@@ -167,8 +167,8 @@ if __name__ == "__main__":
         print("💡 请尝试手动运行 'python coinank_web_app.py' 查看错误信息")
         sys.exit(1)
 
-    # 额外等待2秒确保WebSocket完全初始化
-    print("🔌 初始化WebSocket连接...")
+    # 额外等待2秒确保后端完全初始化
+    print("🔧 等待后端完全初始化...")
     time.sleep(2)
 
     # Run frontend in main thread

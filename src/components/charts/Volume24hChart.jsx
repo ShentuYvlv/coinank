@@ -63,18 +63,20 @@ const Volume24hChart = () => {
   const fetchData = async () => {
     setLoading(true)
     setError(null)
-    
+
     try {
-      const response = await axios.get('https://api.coinank.com/api/volume24h/chart', {
+      // 使用后端API而不是直接调用Coinank API
+      const response = await axios.get(`/api/volume24h/${currentToken}`, {
         params: {
-          baseCoin: currentToken,
           exchangeName: exchange,
           interval: interval
         }
       })
-      
-      if (response.data) {
-        setData(response.data)
+
+      if (response.data && response.data.success) {
+        setData(response.data.data)
+      } else {
+        throw new Error(response.data?.error || '数据获取失败')
       }
     } catch (err) {
       console.error('Failed to fetch volume data:', err)
@@ -85,10 +87,18 @@ const Volume24hChart = () => {
   }
   
   const getChartOption = () => {
-    if (!data || !data.data || data.data.length === 0) return {}
-    
-    const timestamps = data.data.map(item => {
-      const date = new Date(item.timestamp)
+    if (!data || !data.data) return {}
+
+    // 处理后端返回的数据格式
+    const chartData = data.data
+    const timestamps = chartData.tss || []
+    const prices = chartData.prices || []
+    const volumes = chartData.single || []
+
+    if (timestamps.length === 0) return {}
+
+    const formattedTimestamps = timestamps.map(ts => {
+      const date = new Date(ts)
       return date.toLocaleString('zh-CN', {
         month: '2-digit',
         day: '2-digit',
@@ -96,9 +106,10 @@ const Volume24hChart = () => {
         minute: '2-digit'
       })
     })
-    
-    const volumes = data.data.map(item => item.volume || 0)
-    const prices = data.data.map(item => item.price || 0)
+
+    // 过滤掉null值
+    const validVolumes = volumes.map(v => v || 0)
+    const validPrices = prices.map(p => p || 0)
     
     const option = {
       backgroundColor: 'transparent',
@@ -138,7 +149,7 @@ const Volume24hChart = () => {
       },
       xAxis: {
         type: 'category',
-        data: timestamps,
+        data: formattedTimestamps,
         axisPointer: {
           type: 'shadow'
         },
@@ -207,7 +218,7 @@ const Volume24hChart = () => {
         {
           name: '24H成交额',
           type: chartType,
-          data: volumes,
+          data: validVolumes,
           itemStyle: {
             color: theme.palette.primary.main,
             borderRadius: chartType === 'bar' ? [4, 4, 0, 0] : 0
@@ -218,7 +229,7 @@ const Volume24hChart = () => {
           name: '价格',
           type: 'line',
           yAxisIndex: 1,
-          data: prices,
+          data: validPrices,
           smooth: true,
           lineStyle: {
             color: theme.palette.warning.main,

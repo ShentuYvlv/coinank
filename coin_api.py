@@ -248,27 +248,43 @@ class CoinankAPI:
             try:
                 headers = self.get_api_headers()
                 response = self.session.get(url, headers=headers, params=params, timeout=15)
-                
+
+                print(f"🔍 {data_type}请求: {url}")
+                print(f"📊 响应状态: {response.status_code}")
+                print(f"📄 响应头: {dict(response.headers)}")
+
                 if response.status_code == 200:
-                    data = response.json()
-                    if data.get('success'):
-                        data_count = len(data.get('data', []) if isinstance(data.get('data'), list) 
-                                       else data.get('data', {}).get('tss', []))
-                        print(f"✅ {data_type}数据获取成功 ({data_count} 项)")
-                        return data
-                    else:
-                        print(f"❌ {data_type}数据API错误: {data.get('msg', '未知错误')}")
+                    # 检查响应内容类型
+                    content_type = response.headers.get('content-type', '').lower()
+                    if 'application/json' not in content_type:
+                        print(f"⚠️ {data_type}响应不是JSON格式: {content_type}")
+                        print(f"📝 响应内容前500字符: {response.text[:500]}")
+                        continue
+
+                    try:
+                        data = response.json()
+                        if data.get('success'):
+                            data_count = len(data.get('data', []) if isinstance(data.get('data'), list)
+                                           else data.get('data', {}).get('tss', []))
+                            print(f"✅ {data_type}数据获取成功 ({data_count} 项)")
+                            return data
+                        else:
+                            print(f"❌ {data_type}数据API错误: {data.get('msg', '未知错误')}")
+                    except ValueError as json_error:
+                        print(f"❌ {data_type}JSON解析错误: {json_error}")
+                        print(f"📝 响应内容前500字符: {response.text[:500]}")
                 else:
                     print(f"❌ {data_type}数据HTTP错误: {response.status_code}")
-                    
+                    print(f"📝 响应内容: {response.text[:200]}")
+
             except Exception as e:
                 print(f"❌ {data_type}数据请求异常 (尝试{attempt+1}): {e}")
-                
+
             if attempt < max_retries - 1:
                 wait_time = (attempt + 1) * 2
                 print(f"⏳ 等待 {wait_time} 秒后重试...")
                 time.sleep(wait_time)
-        
+
         print(f"❌ {data_type}数据获取失败，已尝试 {max_retries} 次")
         return None
     

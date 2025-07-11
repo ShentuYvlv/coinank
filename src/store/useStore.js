@@ -46,15 +46,14 @@ const useStore = create(
       const handleVisibilityChange = () => {
         const isVisible = !document.hidden
         set({ isPageVisible: isVisible })
-        
-        if (isVisible) {
-          const { refreshData } = get()
-          refreshData()
-        }
+
+        // 移除自动刷新逻辑，只更新页面可见状态
+        // 数据刷新由定时器控制，不再由页面切换触发
+        console.log(`📱 页面可见性变化: ${isVisible ? '可见' : '隐藏'}`)
       }
-      
+
       document.addEventListener('visibilitychange', handleVisibilityChange)
-      
+
       return () => {
         document.removeEventListener('visibilitychange', handleVisibilityChange)
       }
@@ -68,10 +67,30 @@ const useStore = create(
       }
       
       const interval = setInterval(() => {
-        const { refreshData, isPageVisible } = get()
-        if (isPageVisible) {
-          refreshData()
+        const { refreshData, isPageVisible, lastUpdate } = get()
+
+        // 检查页面是否可见
+        if (!isPageVisible) {
+          console.log('⏸️ 页面不可见，跳过定时刷新')
+          return
         }
+
+        // 检查距离上次更新是否已经超过5分钟
+        const now = new Date()
+        if (lastUpdate) {
+          const timeDiff = now - lastUpdate
+          const minsSinceUpdate = Math.floor(timeDiff / (1000 * 60))
+          console.log(`⏰ 距离上次更新: ${minsSinceUpdate} 分钟`)
+
+          // 如果距离上次更新不足4分钟，跳过刷新
+          if (timeDiff < 4 * 60 * 1000) {
+            console.log('⏭️ 距离上次更新不足4分钟，跳过刷新')
+            return
+          }
+        }
+
+        console.log('🔄 执行定时数据刷新')
+        refreshData()
       }, 5 * 60 * 1000) // 5 minutes
       
       set({ refreshInterval: interval })
@@ -119,7 +138,19 @@ const useStore = create(
     },
 
     refreshData: () => {
-      const { currentToken, loadTokenData } = get()
+      const { currentToken, loadTokenData, isLoading, lastUpdate } = get()
+
+      // 防止重复调用
+      if (isLoading) {
+        console.log('⚠️ 数据正在加载中，跳过刷新请求')
+        return
+      }
+
+      // 记录刷新原因
+      const now = new Date()
+      const timeSinceLastUpdate = lastUpdate ? Math.floor((now - lastUpdate) / (1000 * 60)) : '未知'
+      console.log(`🔄 刷新数据 - 代币: ${currentToken}, 距离上次更新: ${timeSinceLastUpdate} 分钟`)
+
       loadTokenData(currentToken)
     },
 
