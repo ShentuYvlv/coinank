@@ -25,12 +25,17 @@ const TablesSection = () => {
     if (num === null || num === undefined) return '-'
     const formatted = num.toFixed(2)
     const color = num >= 0 ? 'success' : 'error'
+    const sign = num >= 0 ? '+' : ''
     return (
       <Chip
-        label={`${formatted}%`}
+        label={`${sign}${formatted}%`}
         size="small"
         color={color}
-        sx={{ minWidth: 70 }}
+        sx={{
+          minWidth: 80,
+          fontSize: '0.75rem',
+          fontWeight: 'bold'
+        }}
       />
     )
   }
@@ -48,12 +53,12 @@ const TablesSection = () => {
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>交易所</TableCell>
-                  <TableCell align="right">价格</TableCell>
-                  <TableCell align="right">24H涨跌</TableCell>
-                  <TableCell align="right">持仓量</TableCell>
-                  <TableCell align="right">24H成交额</TableCell>
-                  <TableCell align="center">操作</TableCell>
+                  <TableCell sx={{ width: '15%' }}>交易所</TableCell>
+                  <TableCell align="right" sx={{ width: '18%' }}>价格</TableCell>
+                  <TableCell align="right" sx={{ width: '15%', minWidth: 100 }}>24H涨跌</TableCell>
+                  <TableCell align="right" sx={{ width: '20%' }}>持仓量</TableCell>
+                  <TableCell align="right" sx={{ width: '20%' }}>24H成交额</TableCell>
+                  <TableCell align="center" sx={{ width: '12%' }}>操作</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -102,12 +107,12 @@ const TablesSection = () => {
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>交易所</TableCell>
-                  <TableCell align="right">价格</TableCell>
-                  <TableCell align="right">24H涨跌</TableCell>
-                  <TableCell align="right">24H成交额</TableCell>
-                  <TableCell align="right">市场深度</TableCell>
-                  <TableCell align="center">操作</TableCell>
+                  <TableCell sx={{ width: '15%' }}>交易所</TableCell>
+                  <TableCell align="right" sx={{ width: '18%' }}>价格</TableCell>
+                  <TableCell align="right" sx={{ width: '15%', minWidth: 100 }}>24H涨跌</TableCell>
+                  <TableCell align="right" sx={{ width: '20%' }}>24H成交额</TableCell>
+                  <TableCell align="right" sx={{ width: '20%' }}>市场深度</TableCell>
+                  <TableCell align="center" sx={{ width: '12%' }}>操作</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>

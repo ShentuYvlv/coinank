@@ -333,7 +333,8 @@ def process_data_for_web(chart_data, ticker_data, spot_data, oi_chart_data, volu
                         'price': ticker.get('lastPrice', 0),
                         'oi_usd': ticker.get('oiUSD', 0),
                         'funding_rate': funding_rate,
-                        'volume_24h': ticker.get('turnover24h', 0)
+                        'volume_24h': ticker.get('turnover24h', 0),
+                        'price_change_24h': ticker.get('priceChange24h', 0)
                     })
 
             print(f"[调试] 过滤后期货数据数量: {len(futures_data)}")
@@ -352,7 +353,8 @@ def process_data_for_web(chart_data, ticker_data, spot_data, oi_chart_data, volu
                     spot_data_list.append({
                         'exchange': spot.get('exchangeName', ''),
                         'price': spot.get('lastPrice', 0),
-                        'volume_24h': spot.get('turnover24h', 0)
+                        'volume_24h': spot.get('turnover24h', 0),
+                        'price_change_24h': spot.get('priceChange24h', 0)
                     })
 
             print(f"[调试] 过滤后现货数据数量: {len(spot_data_list)}")
@@ -405,7 +407,7 @@ def process_data_for_web(chart_data, ticker_data, spot_data, oi_chart_data, volu
             futures_markets.append({
                 'exchange': item['exchange'],
                 'price': item['price'],
-                'change_24h': item.get('change_24h', 0),  # 如果没有涨跌幅数据，默认为0
+                'change_24h': item.get('price_change_24h', 0),  # 使用priceChange24h数据
                 'open_interest': item.get('open_interest', item.get('oi_usd', 0)),  # 使用oi_usd作为备选
                 'volume_24h': item.get('volume_24h', 0)  # 如果没有成交额数据，默认为0
             })
@@ -416,7 +418,7 @@ def process_data_for_web(chart_data, ticker_data, spot_data, oi_chart_data, volu
             spot_markets.append({
                 'exchange': item['exchange'],
                 'price': item['price'],
-                'change_24h': item.get('change_24h', 0),  # 如果没有涨跌幅数据，默认为0
+                'change_24h': item.get('price_change_24h', 0),  # 使用priceChange24h数据
                 'volume_24h': item['volume_24h'],
                 'depth': item.get('depth', 0)  # 如果没有深度数据，默认为0
             })
@@ -594,6 +596,125 @@ def get_volume24h_data(token):
             'error': 'API client not initialized'
         }), 500
 
+@app.route('/api/netflow/<token>')
+def get_netflow_data(token):
+    """获取净流入数据"""
+    if token not in supported_tokens:
+        return jsonify({
+            'success': False,
+            'error': f'Token {token} not supported'
+        }), 400
+
+    # 获取请求参数
+    exchange_name = request.args.get('exchangeName', '')
+    interval = request.args.get('interval', '12h')
+    limit = request.args.get('limit', '500')
+
+    # 构建缓存键
+    cache_key = f"{token}_netflow_{exchange_name}_{interval}_{limit}"
+    current_time = time.time()
+
+    # 检查缓存
+    if (cache_key in data_cache and
+        cache_key in last_update_time and
+        current_time - last_update_time[cache_key] < CACHE_DURATION):
+        print(f"📊 返回缓存的净流入数据: {token}")
+        cached_data = data_cache[cache_key]
+        return jsonify({
+            'success': True,
+            'data': cached_data.get('data', []) if isinstance(cached_data, dict) else cached_data
+        })
+
+    # 获取新数据
+    if api_client:
+        try:
+            netflow_data = api_client.fetch_long_short_flow(token, exchange_name, interval, limit)
+            if netflow_data and netflow_data.get('success'):
+                # 缓存数据
+                data_cache[cache_key] = netflow_data
+                last_update_time[cache_key] = current_time
+                print(f"✅ 净流入数据获取成功: {token}")
+                return jsonify({
+                    'success': True,
+                    'data': netflow_data.get('data', [])  # 直接返回数据数组
+                })
+            else:
+                print(f"❌ 净流入数据获取失败: {token}")
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to fetch net flow data'
+                }), 500
+        except Exception as e:
+            print(f"❌ 净流入数据获取异常: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+    else:
+        return jsonify({
+            'success': False,
+            'error': 'API client not initialized'
+        }), 500
+
+@app.route('/api/openinterest/<token>')
+def get_openinterest_data(token):
+    """获取合约持仓量数据"""
+    if token not in supported_tokens:
+        return jsonify({
+            'success': False,
+            'error': f'Token {token} not supported'
+        }), 400
+
+    # 获取请求参数
+    interval = request.args.get('interval', '1h')
+    data_type = request.args.get('type', 'USD')
+
+    # 构建缓存键
+    cache_key = f"{token}_openinterest_{interval}_{data_type}"
+    current_time = time.time()
+
+    # 检查缓存
+    if (cache_key in data_cache and
+        cache_key in last_update_time and
+        current_time - last_update_time[cache_key] < CACHE_DURATION):
+        print(f"📊 返回缓存的合约持仓量数据: {token}")
+        cached_data = data_cache[cache_key]
+        return jsonify({
+            'success': True,
+            'data': cached_data.get('data', {}) if isinstance(cached_data, dict) else cached_data
+        })
+
+    # 获取新数据
+    if api_client:
+        try:
+            oi_data = api_client.fetch_chart_data(token, interval, data_type)
+            if oi_data and oi_data.get('success'):
+                # 缓存数据
+                data_cache[cache_key] = oi_data
+                last_update_time[cache_key] = current_time
+                print(f"✅ 合约持仓量数据获取成功: {token}")
+                return jsonify({
+                    'success': True,
+                    'data': oi_data.get('data', {})  # 直接返回数据对象
+                })
+            else:
+                print(f"❌ 合约持仓量数据获取失败: {token}")
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to fetch open interest data'
+                }), 500
+        except Exception as e:
+            print(f"❌ 合约持仓量数据获取异常: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+    else:
+        return jsonify({
+            'success': False,
+            'error': 'API client not initialized'
+        }), 500
+
 def schedule_data_refresh():
     """定时刷新数据"""
     global update_timer
@@ -665,28 +786,28 @@ if __name__ == '__main__':
             print(f"🔧 使用命令行指定端口: {port}")
         except ValueError:
             print(f"⚠️ 无效端口参数: {sys.argv[1]}，使用默认端口")
-            port = find_available_port(5000, 10)
+            port = find_available_port(5001, 10)
     else:
         # 查找可用端口
-        port = find_available_port(5000, 10)
+        port = find_available_port(5001, 10)
     
     # 初始化API客户端
     if not initialize_api_client():
         print("⚠️ 初始化失败，但将继续启动Web服务器...")
     
     if port is None:
-        print("⚠️ 自动查找端口失败，尝试使用默认端口5000...")
-        port = 5000
-        
-        # 再次检查5000端口
-        if not check_port_available(5000):
-            print("端口5000被占用，尝试终止占用的进程...")
-            if kill_process_on_port(5000):
-                print("已终止占用进程，使用端口5000")
+        print("⚠️ 自动查找端口失败，尝试使用默认端口5001...")
+        port = 5001
+
+        # 再次检查5001端口
+        if not check_port_available(5001):
+            print("端口5001被占用，尝试终止占用的进程...")
+            if kill_process_on_port(5001):
+                print("已终止占用进程，使用端口5001")
             else:
-                print("无法终止占用进程，强制使用端口5000（Flask会处理端口冲突）")
+                print("无法终止占用进程，强制使用端口5001（Flask会处理端口冲突）")
     
-    if port != 5000:
+    if port != 5001:
         print(f"✅ 使用端口{port}")
     else:
         print(f"✅ 使用默认端口{port}")
@@ -704,8 +825,8 @@ if __name__ == '__main__':
     except OSError as e:
         if "Address already in use" in str(e):
             print(f"❌ 端口{port}被占用，尝试使用其他端口...")
-            # 尝试使用端口5001-5010
-            for backup_port in range(5001, 5011):
+            # 尝试使用端口5002-5010
+            for backup_port in range(5002, 5011):
                 if check_port_available(backup_port):
                     print(f"✅ 使用备用端口{backup_port}")
                     print(f"🌐 访问地址: http://localhost:{backup_port}")

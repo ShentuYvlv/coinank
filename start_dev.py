@@ -87,7 +87,7 @@ def check_port_available(port):
 def check_backend_ready():
     """Check if backend is ready to accept connections"""
     try:
-        response = requests.get('http://127.0.0.1:5000/', timeout=3)
+        response = requests.get('http://127.0.0.1:5001/', timeout=3)
         return response.status_code == 200
     except:
         return False
@@ -96,10 +96,10 @@ def run_backend():
     """Run the Python Flask backend"""
     print("🚀 Starting Python backend...")
 
-    # 清理端口5000上的进程
-    if not check_port_available(5000):
-        print("🔄 端口5000被占用，正在清理...")
-        kill_process_on_port(5000)
+    # 清理端口5001上的进程
+    if not check_port_available(5001):
+        print("🔄 端口5001被占用，正在清理...")
+        kill_process_on_port(5001)
         time.sleep(2)
 
     subprocess.run([sys.executable, "coinank_web_app.py"])
@@ -108,10 +108,10 @@ def run_frontend():
     """Run the React frontend with Vite"""
     print("⚡ Starting React frontend...")
 
-    # 清理端口3000上的进程
-    if not check_port_available(3000):
-        print("🔄 端口3000被占用，正在清理...")
-        kill_process_on_port(3000)
+    # 清理端口5000上的进程
+    if not check_port_available(5000):
+        print("🔄 端口5000被占用，正在清理...")
+        kill_process_on_port(5000)
         time.sleep(2)
 
     run_npm_command(["npm", "run", "dev"])
@@ -122,8 +122,8 @@ def signal_handler(sig, frame):
 
     # 清理端口上的进程
     print("🧹 清理端口...")
+    kill_process_on_port(5001)
     kill_process_on_port(5000)
-    kill_process_on_port(3000)
 
     sys.exit(0)
 
@@ -173,4 +173,6 @@ if __name__ == "__main__":
 
     # Run frontend in main thread
     print("🌐 启动前端开发服务器...")
+    print("📊 前端地址: http://localhost:5000")
+    print("🔧 后端API: http://localhost:5001")
     run_frontend()

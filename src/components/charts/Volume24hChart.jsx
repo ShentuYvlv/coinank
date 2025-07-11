@@ -3,6 +3,7 @@ import {
   Box,
   Card,
   CardContent,
+  CardHeader,
   Typography,
   FormControl,
   Select,
@@ -10,9 +11,11 @@ import {
   ButtonGroup,
   Button,
   CircularProgress,
-  useTheme
+  useTheme,
+  Slider,
+  IconButton
 } from '@mui/material'
-import { BarChart, ShowChart } from '@mui/icons-material'
+import { BarChart, ShowChart, ZoomOutMap as ZoomOutIcon } from '@mui/icons-material'
 import ReactECharts from 'echarts-for-react'
 import axios from 'axios'
 import { useStore } from '../../store/useStore'
@@ -55,6 +58,8 @@ const Volume24hChart = () => {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [timeRangeStart, setTimeRangeStart] = useState(0)
+  const [timeRangeEnd, setTimeRangeEnd] = useState(100)
   
   useEffect(() => {
     fetchData()
@@ -97,7 +102,16 @@ const Volume24hChart = () => {
 
     if (timestamps.length === 0) return {}
 
-    const formattedTimestamps = timestamps.map(ts => {
+    // 根据时间范围过滤数据
+    const totalDataPoints = timestamps.length
+    const startIndex = Math.floor(totalDataPoints * timeRangeStart / 100)
+    const endIndex = Math.ceil(totalDataPoints * timeRangeEnd / 100)
+
+    const filteredTimestamps = timestamps.slice(startIndex, endIndex)
+    const filteredPrices = prices.slice(startIndex, endIndex)
+    const filteredVolumes = volumes.slice(startIndex, endIndex)
+
+    const formattedTimestamps = filteredTimestamps.map(ts => {
       const date = new Date(ts)
       return date.toLocaleString('zh-CN', {
         month: '2-digit',
@@ -108,16 +122,16 @@ const Volume24hChart = () => {
     })
 
     // 过滤掉null值
-    const validVolumes = volumes.map(v => v || 0)
-    const validPrices = prices.map(p => p || 0)
+    const validVolumes = filteredVolumes.map(v => v || 0)
+    const validPrices = filteredPrices.map(p => p || 0)
     
     const option = {
       backgroundColor: 'transparent',
       grid: {
-        top: 60,
-        right: 60,
-        bottom: 60,
-        left: 100,
+        top: 40,
+        right: 20,
+        bottom: 40,
+        left: 60,
         containLabel: true
       },
       tooltip: {
@@ -249,61 +263,99 @@ const Volume24hChart = () => {
   
   return (
     <Card>
-      <CardContent>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Typography variant="h6">
-            24H成交额趋势
-          </Typography>
-          
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <Select
-                value={exchange}
-                onChange={(e) => setExchange(e.target.value)}
-                displayEmpty
-              >
-                {EXCHANGES.map(ex => (
-                  <MenuItem key={ex.value} value={ex.value}>
-                    {ex.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            
-            <FormControl size="small" sx={{ minWidth: 100 }}>
-              <Select
-                value={interval}
-                onChange={(e) => setInterval(e.target.value)}
-                displayEmpty
-              >
-                {TIME_INTERVALS.map(ti => (
-                  <MenuItem key={ti.value} value={ti.value}>
-                    {ti.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            
-            <ButtonGroup size="small">
-              <Button
-                variant={chartType === 'bar' ? 'contained' : 'outlined'}
-                onClick={() => setChartType('bar')}
-                startIcon={<BarChart />}
-              >
-                柱状图
-              </Button>
-              <Button
-                variant={chartType === 'line' ? 'contained' : 'outlined'}
-                onClick={() => setChartType('line')}
-                startIcon={<ShowChart />}
-              >
-                折线图
-              </Button>
-            </ButtonGroup>
+      <CardHeader
+        title={
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            {/* Left side dropdowns */}
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <FormControl size="small">
+                <Select
+                  value={exchange}
+                  onChange={(e) => setExchange(e.target.value)}
+                  sx={{ minWidth: 120 }}
+                >
+                  {EXCHANGES.map(ex => (
+                    <MenuItem key={ex.value} value={ex.value}>
+                      {ex.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl size="small">
+                <Select
+                  value={interval}
+                  onChange={(e) => setInterval(e.target.value)}
+                  sx={{ minWidth: 80 }}
+                >
+                  {TIME_INTERVALS.map(ti => (
+                    <MenuItem key={ti.value} value={ti.value}>
+                      {ti.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
+            {/* Center title */}
+            <Typography variant="h6" sx={{ flex: 1, textAlign: 'center' }}>
+              24H成交额趋势 - {currentToken}
+            </Typography>
+
+            {/* Right side controls */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <ButtonGroup size="small">
+                <Button
+                  variant={chartType === 'bar' ? 'contained' : 'outlined'}
+                  onClick={() => setChartType('bar')}
+                  startIcon={<BarChart />}
+                >
+                  柱状图
+                </Button>
+                <Button
+                  variant={chartType === 'line' ? 'contained' : 'outlined'}
+                  onClick={() => setChartType('line')}
+                  startIcon={<ShowChart />}
+                >
+                  折线图
+                </Button>
+              </ButtonGroup>
+            </Box>
           </Box>
+        }
+        action={
+          <IconButton size="small" onClick={() => fetchData()}>
+            <ZoomOutIcon />
+          </IconButton>
+        }
+      />
+      <Box sx={{ px: 2, pb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="caption">时间周期:</Typography>
+          <Box sx={{ flex: 1, mx: 2 }}>
+            <Slider
+              value={[timeRangeStart, timeRangeEnd]}
+              onChange={(e, newValue) => {
+                setTimeRangeStart(newValue[0])
+                setTimeRangeEnd(newValue[1])
+              }}
+              valueLabelDisplay="auto"
+              valueLabelFormat={(value) => `${value}%`}
+              sx={{
+                '& .MuiSlider-thumb': {
+                  width: 16,
+                  height: 16,
+                }
+              }}
+            />
+          </Box>
+          <Typography variant="caption" sx={{ minWidth: 100, textAlign: 'center' }}>
+            {timeRangeStart === 0 && timeRangeEnd === 100 ? '显示全部' : `${timeRangeStart}%-${timeRangeEnd}%`}
+          </Typography>
         </Box>
-        
-        <Box sx={{ position: 'relative', height: 400 }}>
+      </Box>
+      <CardContent sx={{ height: 400, p: 1 }}>
+        <Box sx={{ position: 'relative', height: '100%' }}>
           {loading && (
             <Box
               sx={{
@@ -317,7 +369,7 @@ const Volume24hChart = () => {
               <CircularProgress />
             </Box>
           )}
-          
+
           {error && (
             <Box
               sx={{
@@ -330,7 +382,7 @@ const Volume24hChart = () => {
               <Typography color="error">{error}</Typography>
             </Box>
           )}
-          
+
           {!loading && !error && data && (
             <ReactECharts
               option={getChartOption()}
