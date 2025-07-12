@@ -114,22 +114,89 @@ function PriceChart() {
   }
 
   // 优先使用API数据，如果没有则使用原来的数据
-  let labels, prices, oiValues
+  let labels, prices, oiValues, detailedOIData = []
 
   if (apiData && apiData.tss && apiData.dataValues) {
     // 使用API数据
     const timestamps = apiData.tss || []
     const pricesFromAPI = apiData.prices || []
-    const exchangeData = apiData.dataValues[currentExchange] || []
+
+    // 处理交易所数据 - 如果选择 'all'，则合并所有交易所数据
+    let exchangeData = []
+    if (currentExchange === 'all') {
+      // 合并所有交易所的持仓量数据
+      const allExchanges = Object.keys(apiData.dataValues)
+      exchangeData = timestamps.map((_, index) => {
+        let totalOI = 0
+        let validCount = 0
+
+        allExchanges.forEach(exchange => {
+          const value = apiData.dataValues[exchange][index]
+          if (value !== null && value !== undefined && !isNaN(value)) {
+            totalOI += Number(value)
+            validCount++
+          }
+        })
+
+        return validCount > 0 ? totalOI : 0
+      })
+    } else {
+      // 使用指定交易所的数据，需要匹配正确的交易所名称
+      const exchangeKey = currentExchange === 'binance' ? 'Binance' :
+                         currentExchange === 'okx' ? 'Okex' :
+                         currentExchange === 'bybit' ? 'Bybit' :
+                         currentExchange
+      exchangeData = apiData.dataValues[exchangeKey] || []
+    }
+
+    // 确保时间轴按从左到右、从前到后的顺序排列
+    // 由于API返回的数据可能是倒序的，我们需要检查并调整
+    const isReversed = timestamps.length > 1 && timestamps[0] > timestamps[1]
+
+    let sortedTimestamps = [...timestamps]
+    let sortedPrices = [...pricesFromAPI]
+    let sortedOiValues = [...exchangeData]
+
+    if (isReversed) {
+      sortedTimestamps.reverse()
+      sortedPrices.reverse()
+      sortedOiValues.reverse()
+    }
 
     // 根据时间范围过滤数据
-    const totalDataPoints = timestamps.length
+    const totalDataPoints = sortedTimestamps.length
     const startIndex = Math.floor(totalDataPoints * timeRangeStart / 100)
     const endIndex = Math.ceil(totalDataPoints * timeRangeEnd / 100)
 
-    const filteredTimestamps = timestamps.slice(startIndex, endIndex)
-    const filteredPrices = pricesFromAPI.slice(startIndex, endIndex)
-    const filteredOiValues = exchangeData.slice(startIndex, endIndex)
+    const filteredTimestamps = sortedTimestamps.slice(startIndex, endIndex)
+    const filteredPrices = sortedPrices.slice(startIndex, endIndex)
+    const filteredOiValues = sortedOiValues.slice(startIndex, endIndex)
+
+    // 构建详细的交易所数据，用于 tooltip 显示
+    const allExchanges = Object.keys(apiData.dataValues)
+    detailedOIData = filteredTimestamps.map((timestamp, index) => {
+      const actualIndex = startIndex + index
+      const exchangeDetails = {}
+      let totalOI = 0
+
+      allExchanges.forEach(exchange => {
+        const sortedExchangeData = isReversed ?
+          [...(apiData.dataValues[exchange] || [])].reverse() :
+          (apiData.dataValues[exchange] || [])
+
+        const value = sortedExchangeData[actualIndex]
+        const numValue = Number(value) || 0
+        exchangeDetails[exchange] = numValue
+        if (numValue > 0) totalOI += numValue
+      })
+
+      return {
+        timestamp,
+        price: Number(filteredPrices[index]) || 0,
+        totalOI,
+        exchanges: exchangeDetails
+      }
+    })
 
     labels = filteredTimestamps.map(timestamp => {
       const date = new Date(timestamp)
@@ -154,6 +221,29 @@ function PriceChart() {
     const startIndex = Math.floor(totalDataPoints * timeRangeStart / 100)
     const endIndex = Math.ceil(totalDataPoints * timeRangeEnd / 100)
     const filteredPriceData = sortedPriceData.slice(startIndex, endIndex)
+
+    // 构建详细数据（后备方案）
+    detailedOIData = filteredPriceData.map(item => {
+      const timestamp = new Date(item.time).getTime()
+      let closestOI = null
+      let minTimeDiff = Infinity
+
+      oiTimeSeriesData.forEach(oiItem => {
+        const oiTimestamp = new Date(oiItem.time).getTime()
+        const timeDiff = Math.abs(timestamp - oiTimestamp)
+        if (timeDiff < minTimeDiff) {
+          minTimeDiff = timeDiff
+          closestOI = oiItem.value
+        }
+      })
+
+      return {
+        timestamp,
+        price: item.price,
+        totalOI: closestOI || 0,
+        exchanges: { 'Total': closestOI || 0 }
+      }
+    })
 
     // Prepare chart data
     labels = filteredPriceData.map(item => {
@@ -236,13 +326,76 @@ function PriceChart() {
         borderColor: '#00d4ff',
         borderWidth: 1,
         cornerRadius: 8,
+        padding: 12,
+        displayColors: false,
         callbacks: {
-          label: function(context) {
-            if (context.dataset.label.includes('价格')) {
-              return `${context.dataset.label}: $${context.parsed.y.toFixed(8)}`
-            } else {
-              return `${context.dataset.label}: $${(context.parsed.y / 1e6).toFixed(2)}M`
+          title: function(context) {
+            if (context.length > 0 && detailedOIData.length > 0) {
+              const dataIndex = context[0].dataIndex
+              const detailData = detailedOIData[dataIndex]
+              if (detailData) {
+                const date = new Date(detailData.timestamp)
+                return date.toLocaleString('zh-CN', {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })
+              }
             }
+            return context[0]?.label || ''
+          },
+          beforeBody: function(context) {
+            if (context.length > 0 && detailedOIData.length > 0) {
+              const dataIndex = context[0].dataIndex
+              const detailData = detailedOIData[dataIndex]
+              if (detailData) {
+                return [`PEPE 价格: $${detailData.price.toFixed(8)}`]
+              }
+            }
+            return []
+          },
+          label: function(context) {
+            // 不显示默认的 label，我们在 afterBody 中自定义显示
+            return null
+          },
+          afterBody: function(context) {
+            if (context.length > 0 && detailedOIData.length > 0) {
+              const dataIndex = context[0].dataIndex
+              const detailData = detailedOIData[dataIndex]
+              if (detailData && detailData.exchanges) {
+                const lines = []
+
+                // 按持仓量从大到小排序
+                const sortedExchanges = Object.entries(detailData.exchanges)
+                  .filter(([_, value]) => value > 0)
+                  .sort(([,a], [,b]) => b - a)
+
+                sortedExchanges.forEach(([exchange, value]) => {
+                  const formattedValue = value >= 1e8 ?
+                    `$${(value / 1e8).toFixed(2)}亿` :
+                    value >= 1e4 ?
+                    `$${(value / 1e4).toFixed(2)}万` :
+                    `$${value.toFixed(2)}`
+
+                  lines.push(`${exchange}: ${formattedValue}`)
+                })
+
+                // 添加总计
+                const totalFormatted = detailData.totalOI >= 1e8 ?
+                  `$${(detailData.totalOI / 1e8).toFixed(2)}亿` :
+                  detailData.totalOI >= 1e4 ?
+                  `$${(detailData.totalOI / 1e4).toFixed(2)}万` :
+                  `$${detailData.totalOI.toFixed(2)}`
+
+                lines.push('')
+                lines.push(`ALL: ${totalFormatted}`)
+
+                return lines
+              }
+            }
+            return []
           }
         }
       },
