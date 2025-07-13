@@ -40,6 +40,59 @@ const NetFlowChart = () => {
   const [showNetFlow, setShowNetFlow] = useState(true)
   const [showPrice, setShowPrice] = useState(true)
 
+  // 数值格式化函数
+  const formatValue = (value) => {
+    const absValue = Math.abs(value)
+    if (absValue >= 100000000) { // 1亿
+      return (value / 100000000).toFixed(1) + '亿'
+    } else if (absValue >= 10000) { // 1万
+      return (value / 10000).toFixed(1) + '万'
+    } else if (absValue >= 1000) { // 1千
+      return (value / 1000).toFixed(1) + 'K'
+    } else {
+      return value.toFixed(0)
+    }
+  }
+
+  // 价格格式化函数 - 改进精度处理
+  const formatPrice = (value) => {
+    if (value >= 1) {
+      return '$' + value.toFixed(4)
+    } else if (value >= 0.0001) {
+      return '$' + value.toFixed(6)
+    } else {
+      return '$' + value.toFixed(8)
+    }
+  }
+
+  // 计算价格轴的合理范围
+  const calculatePriceRange = (prices) => {
+    if (!prices || prices.length === 0) return { min: 'dataMin', max: 'dataMax' }
+
+    const validPrices = prices.filter(p => p > 0)
+    if (validPrices.length === 0) return { min: 'dataMin', max: 'dataMax' }
+
+    const minPrice = Math.min(...validPrices)
+    const maxPrice = Math.max(...validPrices)
+    const range = maxPrice - minPrice
+    const center = (maxPrice + minPrice) / 2
+
+    // 根据价格范围调整显示范围
+    let padding
+    if (range / center < 0.01) { // 变化很小，增加padding
+      padding = Math.max(range * 10, center * 0.02) // 至少2%的变化范围
+    } else if (range / center < 0.05) { // 变化较小
+      padding = range * 2
+    } else { // 变化正常
+      padding = range * 0.1
+    }
+
+    return {
+      min: Math.max(0, minPrice - padding),
+      max: maxPrice + padding
+    }
+  }
+
   // 时间周期选项
   const intervalOptions = [
     { value: '5m', label: '5分钟' },
@@ -124,20 +177,10 @@ const NetFlowChart = () => {
   // 初始化ECharts
   useEffect(() => {
     console.log('🎨 ECharts初始化useEffect触发')
-    console.log('📊 echarts对象:', echarts)
-    console.log('📊 echarts.init方法:', typeof echarts.init)
-    console.log('📊 chartRef.current状态:', chartRef.current)
-    console.log('📊 DOM元素信息:', chartRef.current ? {
-      tagName: chartRef.current.tagName,
-      clientWidth: chartRef.current.clientWidth,
-      clientHeight: chartRef.current.clientHeight,
-      offsetParent: chartRef.current.offsetParent
-    } : 'null')
 
-    // 延迟初始化，确保DOM完全渲染
-    const timer = setTimeout(() => {
-      console.log('⏰ 延迟初始化开始...')
-      console.log('📊 延迟后chartRef.current状态:', chartRef.current)
+    const initChart = () => {
+      console.log('📊 尝试初始化ECharts...')
+      console.log('📊 chartRef.current状态:', chartRef.current)
 
       if (chartRef.current) {
         try {
@@ -152,22 +195,36 @@ const NetFlowChart = () => {
           }
           window.addEventListener('resize', handleResize)
 
+          // 如果有数据，立即更新图表
+          if (data) {
+            console.log('📊 初始化后立即更新图表')
+            setTimeout(() => updateChart(), 50)
+          }
+
+          return () => {
+            window.removeEventListener('resize', handleResize)
+          }
+
         } catch (error) {
           console.error('❌ Failed to initialize ECharts:', error)
           console.error('❌ 错误详情:', error.stack)
           setError('图表初始化失败')
         }
       } else {
-        console.log('❌ 延迟后chartRef.current仍为null，无法初始化ECharts')
+        console.log('❌ chartRef.current为null，延迟重试...')
+        // 如果DOM还没准备好，继续重试
+        setTimeout(initChart, 100)
       }
-    }, 100)
+    }
+
+    // 立即尝试初始化
+    initChart()
 
     return () => {
       console.log('🧹 清理ECharts实例')
-      clearTimeout(timer)
       chartInstance.current?.dispose()
     }
-  }, [])
+  }, []) // 移除data依赖，避免重复初始化
 
   // 更新图表数据
   useEffect(() => {
@@ -190,6 +247,18 @@ const NetFlowChart = () => {
         chartInstance: !!chartInstance.current,
         data: !!data
       })
+
+      // 如果有数据但没有图表实例，尝试重新初始化
+      if (data && !chartInstance.current && chartRef.current) {
+        console.log('🔄 尝试重新初始化图表实例...')
+        try {
+          chartInstance.current = echarts.init(chartRef.current, 'dark')
+          console.log('✅ 重新初始化成功，立即更新图表')
+          updateChart()
+        } catch (error) {
+          console.error('❌ 重新初始化失败:', error)
+        }
+      }
     }
   }, [data, timeRangeStart, timeRangeEnd, showLongRatio, showShortRatio, showNetFlow, showPrice])
 
@@ -230,10 +299,11 @@ const NetFlowChart = () => {
       return
     }
 
-    // 根据时间范围过滤数据
+    // 根据时间范围过滤数据 - 修复滑动方向
     const totalDataPoints = timestamps.length
-    const startIndex = Math.floor(totalDataPoints * timeRangeStart / 100)
-    const endIndex = Math.ceil(totalDataPoints * timeRangeEnd / 100)
+    // 反转滑动逻辑：左边控制左侧（最新数据），右边控制右侧（历史数据）
+    const startIndex = Math.floor(totalDataPoints * (100 - timeRangeEnd) / 100)
+    const endIndex = Math.ceil(totalDataPoints * (100 - timeRangeStart) / 100)
 
     console.log('🔍 数据过滤信息:', {
       totalDataPoints,
@@ -278,6 +348,9 @@ const NetFlowChart = () => {
     const netFlows = buyFlows.map((buy, index) => buy - sellFlows[index])
     const priceData = reversedPrices.map(price => Number(price) || 0)
 
+    // 计算价格轴范围
+    const priceRange = calculatePriceRange(priceData)
+
     console.log('📊 计算后的数据:', {
       buyFlows: buyFlows.length,
       sellFlows: sellFlows.length,
@@ -286,7 +359,8 @@ const NetFlowChart = () => {
       sampleBuyFlows: buyFlows.slice(0, 3),
       sampleSellFlows: sellFlows.slice(0, 3),
       sampleNetFlows: netFlows.slice(0, 3),
-      samplePriceData: priceData.slice(0, 3)
+      samplePriceData: priceData.slice(0, 3),
+      priceRange: priceRange
     })
 
     console.log('🎛️ 显示选项:', {
@@ -365,6 +439,20 @@ const NetFlowChart = () => {
         borderColor: '#333',
         textStyle: {
           color: '#fff'
+        },
+        formatter: (params) => {
+          let result = params[0].axisValueLabel + '<br/>'
+          params.forEach(param => {
+            const value = param.value
+            let formattedValue
+            if (param.seriesName === '价格') {
+              formattedValue = formatPrice(value)
+            } else {
+              formattedValue = formatValue(value)
+            }
+            result += `${param.marker} ${param.seriesName}: ${formattedValue}<br/>`
+          })
+          return result
         }
       },
       legend: {
@@ -404,7 +492,8 @@ const NetFlowChart = () => {
             }
           },
           axisLabel: {
-            color: '#999'
+            color: '#999',
+            formatter: (value) => formatValue(value)
           },
           splitLine: {
             lineStyle: {
@@ -416,13 +505,16 @@ const NetFlowChart = () => {
           type: 'value',
           name: '价格',
           position: 'right',
+          min: priceRange.min,
+          max: priceRange.max,
           axisLine: {
             lineStyle: {
               color: '#333'
             }
           },
           axisLabel: {
-            color: '#999'
+            color: '#999',
+            formatter: (value) => formatPrice(value)
           },
           splitLine: {
             show: false

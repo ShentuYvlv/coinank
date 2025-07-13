@@ -60,6 +60,34 @@ const Volume24hChart = () => {
   const [error, setError] = useState(null)
   const [timeRangeStart, setTimeRangeStart] = useState(0)
   const [timeRangeEnd, setTimeRangeEnd] = useState(100)
+
+  // 计算价格轴的合理范围
+  const calculatePriceRange = (prices) => {
+    if (!prices || prices.length === 0) return { min: 'dataMin', max: 'dataMax' }
+
+    const validPrices = prices.filter(p => p > 0)
+    if (validPrices.length === 0) return { min: 'dataMin', max: 'dataMax' }
+
+    const minPrice = Math.min(...validPrices)
+    const maxPrice = Math.max(...validPrices)
+    const range = maxPrice - minPrice
+    const center = (maxPrice + minPrice) / 2
+
+    // 根据价格范围调整显示范围
+    let padding
+    if (range / center < 0.01) { // 变化很小，增加padding
+      padding = Math.max(range * 10, center * 0.02) // 至少2%的变化范围
+    } else if (range / center < 0.05) { // 变化较小
+      padding = range * 2
+    } else { // 变化正常
+      padding = range * 0.1
+    }
+
+    return {
+      min: Math.max(0, minPrice - padding),
+      max: maxPrice + padding
+    }
+  }
   
   useEffect(() => {
     fetchData()
@@ -124,7 +152,10 @@ const Volume24hChart = () => {
     // 过滤掉null值
     const validVolumes = filteredVolumes.map(v => v || 0)
     const validPrices = filteredPrices.map(p => p || 0)
-    
+
+    // 计算价格轴范围
+    const priceRange = calculatePriceRange(validPrices)
+
     const option = {
       backgroundColor: 'transparent',
       grid: {
@@ -209,6 +240,8 @@ const Volume24hChart = () => {
           type: 'value',
           name: '价格',
           position: 'right',
+          min: priceRange.min,
+          max: priceRange.max,
           axisLabel: {
             color: theme.palette.text.secondary,
             formatter: function(value) {

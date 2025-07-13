@@ -3,7 +3,7 @@ import { Grid, Box } from '@mui/material'
 import PriceChart from './charts/PriceChart'
 import OIDistributionChart from './charts/OIDistributionChart'
 import NetFlowChart from './charts/NetFlowChart'
-import VolumeChart from './charts/VolumeChart'
+
 import Volume24hChart from './charts/Volume24hChart'
 import { useStore } from '../store/useStore'
 
@@ -24,13 +24,10 @@ function ChartsSection() {
         </Grid>
       </Grid>
 
-      {/* Net Flow and Volume Charts in same row */}
+      {/* Net Flow Chart - 占据整行 */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} lg={6}>
+        <Grid item xs={12}>
           <NetFlowChart />
-        </Grid>
-        <Grid item xs={12} lg={6}>
-          <VolumeChart />
         </Grid>
       </Grid>
       
