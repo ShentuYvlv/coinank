@@ -21,7 +21,7 @@ const useStore = create(
     timeRangeEnd: 100,
     currentExchange: 'all',
     currentAsset: 'usd',
-    currentTimeframe: '1h',
+    currentTimeframe: '1d',
     currentChartType: 'area',
     
     // Net flow chart state
