@@ -107,34 +107,55 @@ const useStore = create(
     loadTokenData: async (token) => {
       const { isLoading } = get()
       if (isLoading) return
-      
+
       set({ isLoading: true })
-      
+
       try {
+        console.log(`📊 正在加载代币数据: ${token}`)
         const response = await axios.get(`/api/token/${token}`)
-        
+
         if (response.data.success) {
-          set({ 
+          console.log(`✅ ${token} 数据加载成功`)
+          set({
             data: response.data.data,
             marketData: response.data.data,
             lastUpdate: new Date(),
             isLoading: false
           })
         } else {
+          console.error(`❌ ${token} 数据加载失败:`, response.data.error)
+          set({ isLoading: false })
           throw new Error(response.data.error || 'Data loading failed')
         }
       } catch (error) {
         console.error('Failed to load token data:', error)
         set({ isLoading: false })
+
+        // 重新抛出错误，让调用者处理
+        if (error.response && error.response.data && error.response.data.error) {
+          throw new Error(error.response.data.error)
+        } else {
+          throw new Error(error.message || '网络连接失败，请检查网络或稍后重试')
+        }
       }
     },
 
     switchToken: async (token) => {
       const { currentToken, loadTokenData } = get()
       if (token === currentToken) return
-      
-      set({ currentToken: token })
-      await loadTokenData(token)
+
+      console.log(`🔄 切换代币: ${currentToken} -> ${token}`)
+
+      try {
+        // 先尝试加载数据，成功后再切换当前代币
+        await loadTokenData(token)
+        set({ currentToken: token })
+        console.log(`✅ 成功切换到代币: ${token}`)
+      } catch (error) {
+        console.error(`❌ 切换到代币 ${token} 失败:`, error)
+        // 不更新 currentToken，保持原来的代币
+        throw error // 重新抛出错误让UI处理
+      }
     },
 
     refreshData: () => {

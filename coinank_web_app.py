@@ -31,7 +31,7 @@ app.config['SECRET_KEY'] = 'coinank-web-app-secret-key'
 
 # 全局变量
 api_client = None
-supported_tokens = ["PEPE"]  # 暂时只支持PEPE
+supported_tokens = []  # 动态支持代币，不再限制
 current_token = "PEPE"
 data_cache = {}
 last_update_time = {}
@@ -491,32 +491,37 @@ def get_tokens():
 @app.route('/api/token/<token>')
 def get_token_api(token):
     """获取特定代币的数据"""
-    if token not in supported_tokens:
+    # 移除代币限制，允许用户输入任意代币
+    token = token.upper()  # 转换为大写
+
+    try:
+        data = get_token_data(token)
+        if data:
+            # 如果成功获取数据，将代币添加到支持列表中（如果不存在）
+            if token not in supported_tokens:
+                supported_tokens.append(token)
+                print(f"✅ 新增支持代币: {token}")
+
+            return jsonify({
+                'success': True,
+                'data': data
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'输入代币有误：无法获取 {token} 的数据，请检查代币符号是否正确'
+            }), 400
+    except Exception as e:
+        print(f"❌ 获取代币 {token} 数据时发生异常: {e}")
         return jsonify({
             'success': False,
-            'error': f'Token {token} not supported'
+            'error': f'输入代币有误：{token} 数据获取失败，请检查代币符号是否正确'
         }), 400
-    
-    data = get_token_data(token)
-    if data:
-        return jsonify({
-            'success': True,
-            'data': data
-        })
-    else:
-        return jsonify({
-            'success': False,
-            'error': 'Failed to fetch token data'
-        }), 500
 
 @app.route('/api/refresh/<token>')
 def refresh_token_data(token):
     """刷新特定代币的数据"""
-    if token not in supported_tokens:
-        return jsonify({
-            'success': False,
-            'error': f'Token {token} not supported'
-        }), 400
+    token = token.upper()  # 转换为大写
 
     # 清除缓存
     cache_key = f"{token}_data"
@@ -526,26 +531,28 @@ def refresh_token_data(token):
         del last_update_time[cache_key]
 
     # 重新获取数据
-    data = get_token_data(token)
-    if data:
-        return jsonify({
-            'success': True,
-            'data': data
-        })
-    else:
+    try:
+        data = get_token_data(token)
+        if data:
+            return jsonify({
+                'success': True,
+                'data': data
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'输入代币有误：无法刷新 {token} 的数据'
+            }), 400
+    except Exception as e:
         return jsonify({
             'success': False,
-            'error': 'Failed to refresh token data'
-        }), 500
+            'error': f'输入代币有误：{token} 数据刷新失败'
+        }), 400
 
 @app.route('/api/volume24h/<token>')
 def get_volume24h_data(token):
     """获取24H成交量数据"""
-    if token not in supported_tokens:
-        return jsonify({
-            'success': False,
-            'error': f'Token {token} not supported'
-        }), 400
+    token = token.upper()  # 转换为大写
 
     # 获取请求参数
     exchange_name = request.args.get('exchangeName', 'ALL')
@@ -599,11 +606,7 @@ def get_volume24h_data(token):
 @app.route('/api/netflow/<token>')
 def get_netflow_data(token):
     """获取净流入数据"""
-    if token not in supported_tokens:
-        return jsonify({
-            'success': False,
-            'error': f'Token {token} not supported'
-        }), 400
+    token = token.upper()  # 转换为大写
 
     # 获取请求参数
     exchange_name = request.args.get('exchangeName', '')
@@ -659,11 +662,7 @@ def get_netflow_data(token):
 @app.route('/api/openinterest/<token>')
 def get_openinterest_data(token):
     """获取合约持仓量数据"""
-    if token not in supported_tokens:
-        return jsonify({
-            'success': False,
-            'error': f'Token {token} not supported'
-        }), 400
+    token = token.upper()  # 转换为大写
 
     # 获取请求参数
     interval = request.args.get('interval', '1h')
@@ -794,7 +793,12 @@ if __name__ == '__main__':
     # 初始化API客户端
     if not initialize_api_client():
         print("⚠️ 初始化失败，但将继续启动Web服务器...")
-    
+
+    # 初始化默认支持的代币
+    if 'PEPE' not in supported_tokens:
+        supported_tokens.append('PEPE')
+        print("✅ 已添加默认代币: PEPE")
+
     if port is None:
         print("⚠️ 自动查找端口失败，尝试使用默认端口5001...")
         port = 5001
