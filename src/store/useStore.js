@@ -1,9 +1,58 @@
 import { create } from 'zustand'
-import { devtools } from 'zustand/middleware'
+import { devtools, persist } from 'zustand/middleware'
 import axios from 'axios'
 
+// 缓存配置
+const CACHE_DURATION = 5 * 60 * 1000 // 5分钟
+const CACHE_KEY_PREFIX = 'coinank_cache_'
+
+// 缓存工具函数
+const cacheUtils = {
+  set: (key, data) => {
+    const cacheData = {
+      data,
+      timestamp: Date.now(),
+      expires: Date.now() + CACHE_DURATION
+    }
+    localStorage.setItem(CACHE_KEY_PREFIX + key, JSON.stringify(cacheData))
+  },
+
+  get: (key) => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY_PREFIX + key)
+      if (!cached) return null
+
+      const cacheData = JSON.parse(cached)
+      if (Date.now() > cacheData.expires) {
+        localStorage.removeItem(CACHE_KEY_PREFIX + key)
+        return null
+      }
+
+      return cacheData.data
+    } catch (error) {
+      console.warn('缓存读取失败:', error)
+      return null
+    }
+  },
+
+  clear: (key) => {
+    if (key) {
+      localStorage.removeItem(CACHE_KEY_PREFIX + key)
+    } else {
+      // 清除所有缓存
+      Object.keys(localStorage).forEach(k => {
+        if (k.startsWith(CACHE_KEY_PREFIX)) {
+          localStorage.removeItem(k)
+        }
+      })
+    }
+  }
+}
+
 const useStore = create(
-  devtools((set, get) => ({
+  devtools(
+    persist(
+      (set, get) => ({
     // State
     currentToken: 'PEPE',
     supportedTokens: ['PEPE'],
@@ -108,6 +157,21 @@ const useStore = create(
       const { isLoading } = get()
       if (isLoading) return
 
+      // 检查缓存
+      const cacheKey = `token_${token}`
+      const cachedData = cacheUtils.get(cacheKey)
+
+      if (cachedData) {
+        console.log(`💾 使用缓存数据: ${token}`)
+        set({
+          data: cachedData,
+          marketData: cachedData,
+          lastUpdate: new Date(),
+          isLoading: false
+        })
+        return
+      }
+
       set({ isLoading: true })
 
       try {
@@ -116,9 +180,14 @@ const useStore = create(
 
         if (response.data.success) {
           console.log(`✅ ${token} 数据加载成功`)
+          const tokenData = response.data.data
+
+          // 缓存数据
+          cacheUtils.set(cacheKey, tokenData)
+
           set({
-            data: response.data.data,
-            marketData: response.data.data,
+            data: tokenData,
+            marketData: tokenData,
             lastUpdate: new Date(),
             isLoading: false
           })
@@ -140,6 +209,8 @@ const useStore = create(
       }
     },
 
+
+
     switchToken: async (token) => {
       const { currentToken, loadTokenData } = get()
       if (token === currentToken) return
@@ -147,10 +218,12 @@ const useStore = create(
       console.log(`🔄 切换代币: ${currentToken} -> ${token}`)
 
       try {
-        // 先尝试加载数据，成功后再切换当前代币
+        // 直接加载完整数据（已优化为并发）
+        console.log(`📊 加载 ${token} 完整数据...`)
         await loadTokenData(token)
         set({ currentToken: token })
         console.log(`✅ 成功切换到代币: ${token}`)
+
       } catch (error) {
         console.error(`❌ 切换到代币 ${token} 失败:`, error)
         // 不更新 currentToken，保持原来的代币
@@ -167,12 +240,34 @@ const useStore = create(
         return
       }
 
+      // 清除当前代币的缓存
+      if (currentToken) {
+        cacheUtils.clear(`token_${currentToken}`)
+      }
+
       // 记录刷新原因
       const now = new Date()
       const timeSinceLastUpdate = lastUpdate ? Math.floor((now - lastUpdate) / (1000 * 60)) : '未知'
       console.log(`🔄 刷新数据 - 代币: ${currentToken}, 距离上次更新: ${timeSinceLastUpdate} 分钟`)
 
       loadTokenData(currentToken)
+    },
+
+    clearCache: () => {
+      console.log('🗑️ 清除所有缓存')
+      cacheUtils.clear()
+    },
+
+    clearAllCache: () => {
+      console.log('🗑️ 清除所有本地缓存和状态')
+      // 清除本地缓存
+      cacheUtils.clear()
+      // 清除状态
+      set({
+        data: null,
+        marketData: null,
+        lastUpdate: null
+      })
     },
 
     // Chart control actions
@@ -244,7 +339,23 @@ const useStore = create(
         return '$' + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       }
     }
-  }))
+  }),
+      {
+        name: 'coinank-storage',
+        partialize: (state) => ({
+          currentToken: state.currentToken,
+          currentExchange: state.currentExchange,
+          currentAsset: state.currentAsset,
+          currentTimeframe: state.currentTimeframe,
+          currentChartType: state.currentChartType,
+          showPrice: state.showPrice,
+          showOI: state.showOI,
+          timeRangeStart: state.timeRangeStart,
+          timeRangeEnd: state.timeRangeEnd,
+        }),
+      }
+    )
+  )
 )
 
 export { useStore }

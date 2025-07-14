@@ -98,25 +98,34 @@ def get_token_data(token):
     """获取代币数据（带缓存）"""
     cache_key = f"{token}_data"
     current_time = time.time()
-    
+
     # 检查缓存
-    if (cache_key in data_cache and 
-        cache_key in last_update_time and 
+    if (cache_key in data_cache and
+        cache_key in last_update_time and
         current_time - last_update_time[cache_key] < CACHE_DURATION):
         return data_cache[cache_key]
-    
+
     # 获取新数据
     try:
-        print(f"📊 正在获取 {token} 数据...")
+        print(f"📊 正在获取 {token} 完整数据...")
 
         # 使用新的API客户端获取数据
         raw_data = api_client.get_complete_token_data(token)
 
         if not raw_data:
-            print(f"❌ 获取 {token} 数据失败")
+            print(f"❌ 获取 {token} 数据失败 - raw_data为None")
             return None
 
         print(f"[调试] 原始数据键: {list(raw_data.keys())}")
+
+        # 检查每个数据字段
+        for key, value in raw_data.items():
+            if isinstance(value, dict):
+                success = value.get('success', False)
+                data_count = len(value.get('data', [])) if isinstance(value.get('data'), list) else 'N/A'
+                print(f"[调试] {key}: success={success}, data_count={data_count}")
+            else:
+                print(f"[调试] {key}: {type(value)} - {value}")
 
         # 处理数据
         processed_data = process_data_for_web(
@@ -141,6 +150,53 @@ def get_token_data(token):
         print(f"❌ 详细错误信息: {traceback.format_exc()}")
         return None
 
+def get_basic_token_data(token):
+    """获取基础代币数据（快速版本）"""
+    cache_key = f"{token}_basic_data"
+    current_time = time.time()
+
+    # 检查缓存（基础数据缓存时间更短）
+    basic_cache_duration = 60  # 1分钟
+    if (cache_key in data_cache and
+        cache_key in last_update_time and
+        current_time - last_update_time[cache_key] < basic_cache_duration):
+        return data_cache[cache_key]
+
+    # 获取新的基础数据
+    try:
+        print(f"⚡ 正在快速获取 {token} 基础数据...")
+
+        # 使用基础数据API
+        raw_data = api_client.get_basic_token_data(token)
+
+        if not raw_data:
+            print(f"❌ 获取 {token} 基础数据失败")
+            return None
+
+        # 处理基础数据 - 只处理已获取的核心数据
+        processed_data = process_data_for_web(
+            raw_data.get('chart_data'),
+            raw_data.get('ticker_data'),
+            raw_data.get('spot_data'),
+            raw_data.get('oi_chart_data'),  # 复用价格图表数据
+            None,  # volume_chart_data 稍后获取
+            None,  # net_flow_data 稍后获取
+            token
+        )
+
+        # 标记为基础数据
+        processed_data['is_basic'] = True
+
+        # 缓存基础数据
+        data_cache[cache_key] = processed_data
+        last_update_time[cache_key] = current_time
+
+        return processed_data
+
+    except Exception as e:
+        print(f"❌ 获取 {token} 基础数据失败: {e}")
+        return None
+
 def process_data_for_web(chart_data, ticker_data, spot_data, oi_chart_data, volume_chart_data, net_flow_data, token):
     """处理数据用于Web展示"""
     try:
@@ -154,10 +210,12 @@ def process_data_for_web(chart_data, ticker_data, spot_data, oi_chart_data, volu
 
         # 提取价格数据
         price_data = []
-        if chart_data:
+        if chart_data and chart_data.get('success'):
             data = chart_data.get('data', {})
             timestamps = data.get('tss', [])
             prices = data.get('prices', [])
+
+            print(f"[调试] 价格数据: timestamps={len(timestamps)}, prices={len(prices)}")
 
             min_length = min(len(timestamps), len(prices))
             for i in range(min_length):
@@ -167,13 +225,15 @@ def process_data_for_web(chart_data, ticker_data, spot_data, oi_chart_data, volu
                         'price': prices[i]
                     })
 
+            print(f"[调试] 处理后价格数据点数: {len(price_data)}")
+
         # 提取持仓量数据 - 使用新的持仓量API数据
         print(f"[调试] 开始处理持仓量数据...")
         oi_data = []
         oi_time_series = []  # 用于在价格图表上显示的时序数据
 
         # 优先使用持仓量图表API数据
-        if oi_chart_data:
+        if oi_chart_data and oi_chart_data.get('success'):
             print(f"[调试] 使用持仓量图表API数据")
             data = oi_chart_data.get('data', {})
 
@@ -181,7 +241,9 @@ def process_data_for_web(chart_data, ticker_data, spot_data, oi_chart_data, volu
             timestamps = data.get('tss', [])
             data_values = data.get('dataValues', {})
 
-            if timestamps and data_values:
+            print(f"[调试] 持仓量数据: timestamps={len(timestamps)}, dataValues_keys={list(data_values.keys()) if data_values else 'None'}")
+
+            if timestamps and data_values and len(data_values) > 0:
                 # 为每个时间点计算总持仓量
                 for i, timestamp in enumerate(timestamps):
                     total_oi = 0
@@ -314,7 +376,7 @@ def process_data_for_web(chart_data, ticker_data, spot_data, oi_chart_data, volu
 
         # 期货市场数据
         futures_data = []
-        if ticker_data:
+        if ticker_data and ticker_data.get('success'):
             ticker_list = ticker_data.get('data', [])
             print(f"[调试] 原始期货数据数量: {len(ticker_list)}")
 
@@ -341,7 +403,7 @@ def process_data_for_web(chart_data, ticker_data, spot_data, oi_chart_data, volu
     
         # 现货市场数据
         spot_data_list = []
-        if spot_data:
+        if spot_data and spot_data.get('success'):
             spot_list = spot_data.get('data', [])
             print(f"[调试] 原始现货数据数量: {len(spot_list)}")
 
@@ -494,8 +556,17 @@ def get_token_api(token):
     # 移除代币限制，允许用户输入任意代币
     token = token.upper()  # 转换为大写
 
+    # 检查是否请求基础数据
+    basic_only = request.args.get('basic', 'false').lower() == 'true'
+
     try:
-        data = get_token_data(token)
+        if basic_only:
+            # 获取基础数据
+            data = get_basic_token_data(token)
+        else:
+            # 获取完整数据
+            data = get_token_data(token)
+
         if data:
             # 如果成功获取数据，将代币添加到支持列表中（如果不存在）
             if token not in supported_tokens:

@@ -19,7 +19,7 @@ class CoinankAPI:
     def __init__(self, use_proxy=True, proxy_host='127.0.0.1', proxy_port=10808):
         """
         初始化API客户端
-        
+
         Args:
             use_proxy: 是否使用代理
             proxy_host: 代理主机地址
@@ -29,7 +29,12 @@ class CoinankAPI:
         self.base_url = "https://api.coinank.com"
         self.main_url = "https://coinank.com"
         self.proxy_configured = False
-        
+
+        # 会话缓存
+        self.session_established = False
+        self.last_session_time = 0
+        self.session_timeout = 300  # 5分钟会话超时
+
         # 配置代理
         if use_proxy:
             self.proxy_configured = self.setup_proxy(proxy_host, proxy_port)
@@ -180,9 +185,17 @@ class CoinankAPI:
             return False
     
     def establish_session(self):
-        """建立会话"""
-        print("🔗 建立coinank会话...")
-        
+        """建立会话 - 带缓存优化"""
+        current_time = time.time()
+
+        # 检查会话是否仍然有效
+        if (self.session_established and
+            current_time - self.last_session_time < self.session_timeout):
+            print("� 使用缓存的会话")
+            return True
+
+        print("�🔗 建立新的coinank会话...")
+
         main_headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
@@ -196,22 +209,28 @@ class CoinankAPI:
             'Sec-Fetch-User': '?1',
             'Cache-Control': 'max-age=0'
         }
-        
+
         try:
-            resp = self.session.get(self.main_url, headers=main_headers, timeout=15)
-            
+            resp = self.session.get(self.main_url, headers=main_headers, timeout=10)
+
             if resp.status_code == 200:
                 cookies_count = len(self.session.cookies)
                 print(f"✅ 主站响应: {resp.status_code}")
                 print(f"✅ 获取到 {cookies_count} 个Cookie")
-                time.sleep(1)
+
+                # 更新会话状态
+                self.session_established = True
+                self.last_session_time = current_time
+
                 return True
             else:
                 print(f"❌ 主站访问失败: {resp.status_code}")
+                self.session_established = False
                 return False
-                
+
         except Exception as e:
             print(f"❌ 建立会话失败: {e}")
+            self.session_established = False
             return False
     
     def get_api_headers(self):
@@ -242,23 +261,21 @@ class CoinankAPI:
             'sec-ch-ua-platform': '"Windows"'
         }
     
-    def fetch_data_with_retry(self, url, params, data_type, max_retries=3):
-        """带重试的数据获取"""
+    def fetch_data_with_retry(self, url, params, data_type, max_retries=2):
+        """带重试的数据获取 - 优化版本"""
         for attempt in range(max_retries):
             try:
                 headers = self.get_api_headers()
-                response = self.session.get(url, headers=headers, params=params, timeout=15)
+                response = self.session.get(url, headers=headers, params=params, timeout=8)
 
                 print(f"🔍 {data_type}请求: {url}")
                 print(f"📊 响应状态: {response.status_code}")
-                print(f"📄 响应头: {dict(response.headers)}")
 
                 if response.status_code == 200:
                     # 检查响应内容类型
                     content_type = response.headers.get('content-type', '').lower()
                     if 'application/json' not in content_type:
                         print(f"⚠️ {data_type}响应不是JSON格式: {content_type}")
-                        print(f"📝 响应内容前500字符: {response.text[:500]}")
                         continue
 
                     try:
@@ -272,16 +289,14 @@ class CoinankAPI:
                             print(f"❌ {data_type}数据API错误: {data.get('msg', '未知错误')}")
                     except ValueError as json_error:
                         print(f"❌ {data_type}JSON解析错误: {json_error}")
-                        print(f"📝 响应内容前500字符: {response.text[:500]}")
                 else:
                     print(f"❌ {data_type}数据HTTP错误: {response.status_code}")
-                    print(f"📝 响应内容: {response.text[:200]}")
 
             except Exception as e:
                 print(f"❌ {data_type}数据请求异常 (尝试{attempt+1}): {e}")
 
             if attempt < max_retries - 1:
-                wait_time = (attempt + 1) * 2
+                wait_time = 1  # 减少重试等待时间
                 print(f"⏳ 等待 {wait_time} 秒后重试...")
                 time.sleep(wait_time)
 
@@ -342,52 +357,123 @@ class CoinankAPI:
         return self.fetch_data_with_retry(url, params, "净流入")
     
     def get_complete_token_data(self, token="PEPE"):
-        """获取完整的代币数据"""
+        """获取完整的代币数据 - 优化版本：并行请求"""
         print(f"📊 正在获取 {token} 完整数据...")
-        
+
         # 建立会话
         if not self.establish_session():
             print("❌ 建立会话失败")
             return None
-        
-        # 获取数据
-        chart_data = self.fetch_chart_data(token)
-        time.sleep(1)
-        ticker_data = self.fetch_ticker_data(token)
-        time.sleep(1)
-        spot_data = self.fetch_spot_data(token)
-        time.sleep(1)
-        oi_chart_data = self.fetch_open_interest_chart(token)
-        time.sleep(1)
-        volume_chart_data = self.fetch_volume_chart(token)
-        time.sleep(1)
 
-        # 获取净流入数据
-        try:
-            net_flow_data = self.fetch_long_short_flow(token)
-            print(f"✅ 净流入数据获取成功")
-        except Exception as e:
-            print(f"⚠️ 净流入数据获取失败: {e}")
-            net_flow_data = None
-        
-        # 验证数据
-        all_data = [chart_data, ticker_data, spot_data, oi_chart_data, volume_chart_data, net_flow_data]
-        success_count = sum([1 for data in all_data if data])
+        # 使用线程池并行获取数据
+        import concurrent.futures
+        import threading
+
+        # 定义所有需要获取的数据
+        data_tasks = [
+            ('chart_data', lambda: self.fetch_chart_data(token)),
+            ('ticker_data', lambda: self.fetch_ticker_data(token)),
+            ('spot_data', lambda: self.fetch_spot_data(token)),
+            ('oi_chart_data', lambda: self.fetch_open_interest_chart(token)),
+            ('volume_chart_data', lambda: self.fetch_volume_chart(token)),
+            ('net_flow_data', lambda: self.fetch_long_short_flow(token))
+        ]
+
+        results = {}
+        success_count = 0
+
+        # 并行执行所有请求
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            # 提交所有任务
+            future_to_name = {
+                executor.submit(task_func): name
+                for name, task_func in data_tasks
+            }
+
+            # 收集结果
+            for future in concurrent.futures.as_completed(future_to_name):
+                name = future_to_name[future]
+                try:
+                    result = future.result(timeout=15)  # 15秒超时
+                    results[name] = result
+                    if result:
+                        success_count += 1
+                        print(f"✅ {name} 获取成功")
+                    else:
+                        print(f"❌ {name} 获取失败")
+                except Exception as e:
+                    print(f"❌ {name} 获取异常: {e}")
+                    results[name] = None
+
         print(f"📈 数据获取结果: {success_count}/6 成功")
-        
+
         if success_count == 0:
             print("❌ 未能获取到任何数据")
             return None
-        
+
         return {
-            'chart_data': chart_data,
-            'ticker_data': ticker_data,
-            'spot_data': spot_data,
-            'oi_chart_data': oi_chart_data,
-            'volume_chart_data': volume_chart_data,
-            'net_flow_data': net_flow_data,
+            'chart_data': results.get('chart_data'),
+            'ticker_data': results.get('ticker_data'),
+            'spot_data': results.get('spot_data'),
+            'oi_chart_data': results.get('oi_chart_data'),
+            'volume_chart_data': results.get('volume_chart_data'),
+            'net_flow_data': results.get('net_flow_data'),
             'token': token,
             'fetch_time': datetime.now().isoformat()
+        }
+
+    def get_basic_token_data(self, token="PEPE"):
+        """获取基础代币数据 - 快速版本，获取核心数据但确保图表能显示"""
+        print(f"⚡ 快速获取 {token} 基础数据...")
+
+        # 建立会话
+        if not self.establish_session():
+            print("❌ 建立会话失败")
+            return None
+
+        # 获取核心数据：价格图表、期货数据、现货数据（这3个是最重要的）
+        import concurrent.futures
+
+        basic_tasks = [
+            ('chart_data', lambda: self.fetch_chart_data(token)),
+            ('ticker_data', lambda: self.fetch_ticker_data(token)),
+            ('spot_data', lambda: self.fetch_spot_data(token))
+        ]
+
+        results = {}
+        success_count = 0
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            future_to_name = {
+                executor.submit(task_func): name
+                for name, task_func in basic_tasks
+            }
+
+            for future in concurrent.futures.as_completed(future_to_name):
+                name = future_to_name[future]
+                try:
+                    result = future.result(timeout=8)
+                    results[name] = result
+                    if result:
+                        success_count += 1
+                        print(f"✅ {name} 获取成功")
+                except Exception as e:
+                    print(f"❌ {name} 获取异常: {e}")
+                    results[name] = None
+
+        if success_count == 0:
+            return None
+
+        return {
+            'chart_data': results.get('chart_data'),
+            'ticker_data': results.get('ticker_data'),
+            'spot_data': results.get('spot_data'),
+            'oi_chart_data': results.get('chart_data'),  # 复用价格图表数据
+            'volume_chart_data': None,  # 稍后获取
+            'net_flow_data': None,  # 稍后获取
+            'token': token,
+            'fetch_time': datetime.now().isoformat(),
+            'is_basic': True  # 标记为基础数据
         }
 
 

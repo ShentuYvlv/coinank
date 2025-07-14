@@ -20,7 +20,7 @@ import { useStore } from '../store/useStore'
 import { useSnackbar } from 'notistack'
 
 function Navbar() {
-  const { currentToken, refreshData, switchToken, isLoading } = useStore()
+  const { currentToken, refreshData, switchToken, isLoading, clearAllCache } = useStore()
   const { enqueueSnackbar } = useSnackbar()
   const [tokenInput, setTokenInput] = useState('')
 
@@ -47,6 +47,12 @@ function Navbar() {
       console.log(`🔍 搜索代币: ${token}`)
       await switchToken(token)
       setTokenInput('')
+
+      // 更新 URL 参数
+      const newUrl = new URL(window.location)
+      newUrl.searchParams.set('basecoin', token.toLowerCase())
+      window.history.pushState({}, '', newUrl)
+
       enqueueSnackbar(`成功切换到 ${token}`, { variant: 'success' })
     } catch (error) {
       console.error('代币切换失败:', error)
@@ -146,6 +152,19 @@ function Navbar() {
             sx={{ borderColor: 'rgba(255, 255, 255, 0.23)' }}
           >
             刷新数据
+          </Button>
+
+          <Button
+            variant="outlined"
+            size="small"
+            onClick={() => {
+              clearAllCache()
+              enqueueSnackbar('缓存已清除', { variant: 'info' })
+            }}
+            disabled={isLoading}
+            sx={{ borderColor: 'rgba(255, 255, 255, 0.23)', color: 'rgba(255, 255, 255, 0.7)' }}
+          >
+            清除缓存
           </Button>
 
           <IconButton

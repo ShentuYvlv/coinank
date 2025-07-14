@@ -343,8 +343,9 @@ const NetFlowChart = () => {
     })
 
     // 使用longRatios和shortRatios作为买入和卖出数据
-    const buyFlows = reversedLongRatios.map(ratio => Number(ratio) || 0)
-    const sellFlows = reversedShortRatios.map(ratio => Number(ratio) || 0)
+    // 将数据缩放到合理范围（除以1000000，转换为百万单位）
+    const buyFlows = reversedLongRatios.map(ratio => (Number(ratio) || 0) / 1000000)
+    const sellFlows = reversedShortRatios.map(ratio => (Number(ratio) || 0) / 1000000)
     const netFlows = buyFlows.map((buy, index) => buy - sellFlows[index])
     const priceData = reversedPrices.map(price => Number(price) || 0)
 
@@ -484,7 +485,7 @@ const NetFlowChart = () => {
       yAxis: [
         {
           type: 'value',
-          name: '净流入',
+          name: '净流入 (百万)',
           position: 'left',
           axisLine: {
             lineStyle: {
@@ -493,7 +494,7 @@ const NetFlowChart = () => {
           },
           axisLabel: {
             color: '#999',
-            formatter: (value) => formatValue(value)
+            formatter: (value) => value.toFixed(1) + 'M'
           },
           splitLine: {
             lineStyle: {
@@ -536,9 +537,18 @@ const NetFlowChart = () => {
       }
 
       console.log('🎨 开始设置ECharts选项...')
-      chartInstance.current.setOption(option)
+      console.log('📊 图表容器尺寸:', chartRef.current?.offsetWidth, 'x', chartRef.current?.offsetHeight)
+      chartInstance.current.setOption(option, true)
       console.log('✅ Chart updated successfully with', series.length, 'series')
       console.log('✅ 图表更新完成')
+
+      // 强制重绘
+      setTimeout(() => {
+        if (chartInstance.current) {
+          chartInstance.current.resize()
+          console.log('🔄 强制重绘图表')
+        }
+      }, 100)
     } catch (error) {
       console.error('❌ Failed to update chart:', error)
       console.error('❌ 错误堆栈:', error.stack)
@@ -694,7 +704,7 @@ const NetFlowChart = () => {
           <Box sx={{ flex: 1, mx: 2 }}>
             <Slider
               value={[timeRangeStart, timeRangeEnd]}
-              onChange={(e, newValue) => {
+              onChange={(_, newValue) => {
                 setTimeRangeStart(newValue[0])
                 setTimeRangeEnd(newValue[1])
               }}

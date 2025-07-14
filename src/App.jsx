@@ -88,10 +88,27 @@ const darkTheme = createTheme({
 
 function App() {
   const initializeApp = useStore((state) => state.initializeApp)
+  const switchToken = useStore((state) => state.switchToken)
 
   React.useEffect(() => {
-    initializeApp()
-  }, [initializeApp])
+    // 检查 URL 参数
+    const urlParams = new URLSearchParams(window.location.search)
+    const basecoin = urlParams.get('basecoin')
+
+    if (basecoin) {
+      console.log(`🔗 从URL参数加载代币: ${basecoin}`)
+      // 先初始化应用，然后切换代币
+      initializeApp().then(() => {
+        switchToken(basecoin.toUpperCase()).catch(error => {
+          console.error('URL参数代币加载失败:', error)
+          // 如果URL参数的代币无效，回退到默认代币
+          initializeApp()
+        })
+      })
+    } else {
+      initializeApp()
+    }
+  }, [initializeApp, switchToken])
 
   return (
     <ThemeProvider theme={darkTheme}>

@@ -283,7 +283,7 @@ function PriceChart() {
   if (showPrice) {
     chartData.datasets.push({
       type: 'line',
-      label: `${data.token || 'PEPE'} 价格`,
+      label: `${data.token || currentToken} 价格`,
       data: prices,
       borderColor: '#00d4ff',
       backgroundColor: currentChartType === 'area' ? 'rgba(0, 212, 255, 0.1)' : 'transparent',
@@ -351,7 +351,7 @@ function PriceChart() {
               const dataIndex = context[0].dataIndex
               const detailData = detailedOIData[dataIndex]
               if (detailData) {
-                return [`PEPE 价格: $${detailData.price.toFixed(8)}`]
+                return [`${currentToken} 价格: $${detailData.price.toFixed(8)}`]
               }
             }
             return []
@@ -520,7 +520,7 @@ function PriceChart() {
 
             {/* Center title */}
             <Typography variant="h6" sx={{ flex: 1, textAlign: 'center' }}>
-              PEPE 合约持仓量变化图
+              {currentToken} 合约持仓量变化图
             </Typography>
 
             {/* Right side controls */}
