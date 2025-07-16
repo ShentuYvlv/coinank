@@ -32,6 +32,7 @@ import {
 import zoomPlugin from 'chartjs-plugin-zoom'
 import { useStore } from '../../store/useStore'
 import axios from 'axios'
+import { openinterestCache } from '../../utils/chartCache'
 
 ChartJS.register(
   CategoryScale,
@@ -76,10 +77,25 @@ function PriceChart() {
 
   // 获取合约持仓量数据
   const fetchOpenInterestData = async () => {
+    // 构建缓存键
+    const cacheKey = `${currentToken}_${currentTimeframe}_${currentAsset.toUpperCase()}`
+    console.log('🔍 检查OpenInterest缓存键:', cacheKey)
+
+    // 检查缓存
+    const cachedData = openinterestCache.get(cacheKey)
+    if (cachedData) {
+      console.log('💾 使用OpenInterest缓存数据')
+      setApiData(cachedData)
+      setLoading(false)
+      setError(null)
+      return
+    }
+
     setLoading(true)
     setError(null)
 
     try {
+      console.log('🌐 发送OpenInterest请求:', `/api/openinterest/${currentToken}`)
       const response = await axios.get(`/api/openinterest/${currentToken}`, {
         params: {
           interval: currentTimeframe,
@@ -88,6 +104,8 @@ function PriceChart() {
       })
 
       if (response.data && response.data.success) {
+        // 缓存数据
+        openinterestCache.set(cacheKey, response.data.data)
         setApiData(response.data.data)
       } else {
         throw new Error(response.data?.error || '数据获取失败')

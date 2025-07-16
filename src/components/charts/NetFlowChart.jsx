@@ -18,6 +18,7 @@ import { ZoomOutMap as ZoomOutIcon } from '@mui/icons-material'
 import ReactECharts from 'echarts-for-react'
 import { useStore } from '../../store/useStore'
 import axios from 'axios'
+import { netflowCache } from '../../utils/chartCache'
 
 const NetFlowChart = () => {
   const theme = useTheme()
@@ -121,6 +122,20 @@ const NetFlowChart = () => {
       limit: 500
     })
 
+    // 构建缓存键
+    const cacheKey = `${currentToken}_${exchangeName === 'ALL' ? '' : exchangeName}_${interval}_500`
+    console.log('🔍 检查NetFlow缓存键:', cacheKey)
+
+    // 检查缓存
+    const cachedData = netflowCache.get(cacheKey)
+    if (cachedData) {
+      console.log('💾 使用NetFlow缓存数据')
+      setData(cachedData)
+      setLoading(false)
+      setError(null)
+      return
+    }
+
     setLoading(true)
     setError(null)
 
@@ -132,7 +147,7 @@ const NetFlowChart = () => {
         limit: 500
       }
 
-      console.log('🌐 发送请求:', requestUrl, requestParams)
+      console.log('🌐 发送NetFlow请求:', requestUrl, requestParams)
 
       const response = await axios.get(requestUrl, {
         params: requestParams
@@ -148,6 +163,8 @@ const NetFlowChart = () => {
         console.log('NetFlow data content:', responseData)
 
         if (responseData && typeof responseData === 'object') {
+          // 缓存数据
+          netflowCache.set(cacheKey, responseData)
           setData(responseData)
         } else {
           console.error('Invalid data format:', responseData)

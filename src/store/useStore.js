@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { devtools, persist } from 'zustand/middleware'
 import axios from 'axios'
+import { clearAllChartCache, getAllChartCacheStats } from '../utils/chartCache'
 
 // 缓存配置
 const CACHE_DURATION = 30 * 60 * 1000 // 30分钟（从5分钟增加到30分钟）
@@ -352,12 +353,33 @@ const useStore = create(
       console.log('🗑️ 清除所有本地缓存和状态')
       // 清除本地缓存
       cacheUtils.clear()
+      // 清除图表缓存
+      clearAllChartCache()
       // 清除状态
       set({
         data: null,
         marketData: null,
         lastUpdate: null
       })
+    },
+
+    // 获取缓存统计信息
+    getCacheStats: () => {
+      const mainCacheStats = {
+        // 主要数据缓存统计
+        mainCache: {
+          totalItems: 0,
+          totalSize: 0
+        }
+      }
+
+      // 获取图表缓存统计
+      const chartStats = getAllChartCacheStats()
+
+      return {
+        ...mainCacheStats,
+        charts: chartStats
+      }
     },
 
     // Chart control actions

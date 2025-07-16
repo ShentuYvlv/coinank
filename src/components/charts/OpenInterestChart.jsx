@@ -26,6 +26,7 @@ import {
 import { Line } from 'react-chartjs-2'
 import { useStore } from '../../store/useStore'
 import axios from 'axios'
+import { oichartCache } from '../../utils/chartCache'
 
 ChartJS.register(
   CategoryScale,
@@ -70,18 +71,35 @@ const OpenInterestChart = () => {
   
   // 获取合约持仓量数据
   const fetchOpenInterestData = async () => {
+    // 构建缓存键
+    const cacheKey = `${currentToken}_${interval}_${dataType}`
+    console.log('🔍 检查OpenInterestChart缓存键:', cacheKey)
+
+    // 检查缓存
+    const cachedData = oichartCache.get(cacheKey)
+    if (cachedData) {
+      console.log('💾 使用OpenInterestChart缓存数据')
+      setData(cachedData)
+      setLoading(false)
+      setError(null)
+      return
+    }
+
     setLoading(true)
     setError(null)
-    
+
     try {
+      console.log('🌐 发送OpenInterestChart请求:', `/api/openinterest/${currentToken}`)
       const response = await axios.get(`/api/openinterest/${currentToken}`, {
         params: {
           interval,
           type: dataType
         }
       })
-      
+
       if (response.data && response.data.success) {
+        // 缓存数据
+        oichartCache.set(cacheKey, response.data.data)
         setData(response.data.data)
       } else {
         throw new Error(response.data?.error || '数据获取失败')

@@ -19,6 +19,7 @@ import { BarChart, ShowChart, ZoomOutMap as ZoomOutIcon } from '@mui/icons-mater
 import ReactECharts from 'echarts-for-react'
 import axios from 'axios'
 import { useStore } from '../../store/useStore'
+import { volume24hCache } from '../../utils/chartCache'
 
 const EXCHANGES = [
   { value: 'ALL', label: '全部交易所' },
@@ -94,10 +95,25 @@ const Volume24hChart = () => {
   }, [currentToken, exchange, interval])
   
   const fetchData = async () => {
+    // 构建缓存键
+    const cacheKey = `${currentToken}_${exchange}_${interval}`
+    console.log('🔍 检查Volume24h缓存键:', cacheKey)
+
+    // 检查缓存
+    const cachedData = volume24hCache.get(cacheKey)
+    if (cachedData) {
+      console.log('💾 使用Volume24h缓存数据')
+      setData(cachedData)
+      setLoading(false)
+      setError(null)
+      return
+    }
+
     setLoading(true)
     setError(null)
 
     try {
+      console.log('🌐 发送Volume24h请求:', `/api/volume24h/${currentToken}`)
       // 使用后端API而不是直接调用Coinank API
       const response = await axios.get(`/api/volume24h/${currentToken}`, {
         params: {
@@ -107,6 +123,8 @@ const Volume24hChart = () => {
       })
 
       if (response.data && response.data.success) {
+        // 缓存数据
+        volume24hCache.set(cacheKey, response.data.data)
         setData(response.data.data)
       } else {
         throw new Error(response.data?.error || '数据获取失败')
