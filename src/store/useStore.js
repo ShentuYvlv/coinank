@@ -3,48 +3,76 @@ import { devtools, persist } from 'zustand/middleware'
 import axios from 'axios'
 
 // 缓存配置
-const CACHE_DURATION = 5 * 60 * 1000 // 5分钟
+const CACHE_DURATION = 30 * 60 * 1000 // 30分钟（从5分钟增加到30分钟）
 const CACHE_KEY_PREFIX = 'coinank_cache_'
 
 // 缓存工具函数
 const cacheUtils = {
   set: (key, data) => {
+    try {
     const cacheData = {
       data,
       timestamp: Date.now(),
       expires: Date.now() + CACHE_DURATION
     }
     localStorage.setItem(CACHE_KEY_PREFIX + key, JSON.stringify(cacheData))
+      console.log(`💾 缓存已保存: ${key}`)
+    } catch (error) {
+      console.error('缓存保存失败:', error)
+    }
   },
 
   get: (key) => {
     try {
       const cached = localStorage.getItem(CACHE_KEY_PREFIX + key)
-      if (!cached) return null
+      if (!cached) {
+        console.log(`🔍 缓存未找到: ${key}`)
+        return null
+      }
 
       const cacheData = JSON.parse(cached)
+      
+      // 检查缓存是否过期
       if (Date.now() > cacheData.expires) {
+        console.log(`⏰ 缓存已过期: ${key}`)
         localStorage.removeItem(CACHE_KEY_PREFIX + key)
         return null
       }
 
+      console.log(`✅ 缓存命中: ${key}`)
       return cacheData.data
     } catch (error) {
-      console.warn('缓存读取失败:', error)
+      console.error(`❌ 缓存读取失败 (${key}):`, error)
+      // 如果缓存数据损坏，清除它
+      try {
+        localStorage.removeItem(CACHE_KEY_PREFIX + key)
+      } catch (removeError) {
+        console.error('清除损坏缓存失败:', removeError)
+      }
       return null
     }
   },
 
   clear: (key) => {
+    try {
     if (key) {
       localStorage.removeItem(CACHE_KEY_PREFIX + key)
+        console.log(`🗑️ 清除缓存: ${key}`)
     } else {
       // 清除所有缓存
-      Object.keys(localStorage).forEach(k => {
-        if (k.startsWith(CACHE_KEY_PREFIX)) {
-          localStorage.removeItem(k)
+        const keysToRemove = []
+        for (let i = 0; i < localStorage.length; i++) {
+          const storageKey = localStorage.key(i)
+          if (storageKey && storageKey.startsWith(CACHE_KEY_PREFIX)) {
+            keysToRemove.push(storageKey)
+          }
         }
-      })
+        
+        keysToRemove.forEach(k => localStorage.removeItem(k))
+        console.log(`🗑️ 清除所有缓存，共 ${keysToRemove.length} 项`)
+        }
+    } catch (error) {
+      console.error('缓存清除失败:', error)
     }
   }
 }
@@ -84,9 +112,29 @@ const useStore = create(
     volumeChartType: 'bar',
 
     // Actions
-    initializeApp: () => {
+    initializeApp: async () => {
       const { loadTokenData, setupPageVisibility, startDataRefresh, currentToken } = get()
-      loadTokenData(currentToken)
+      
+      console.log('🚀 开始初始化应用...')
+      console.log(`📋 当前状态:`, {
+        currentToken,
+        localStorage: {
+          hasZustandStorage: !!localStorage.getItem('coinank-storage'),
+          hasTokenCache: !!localStorage.getItem(`coinank_cache_token_${currentToken}`),
+          storageKeys: Object.keys(localStorage).filter(key => key.startsWith('coinank'))
+        }
+      })
+      
+      try {
+        // 等待数据加载完成
+        await loadTokenData(currentToken)
+        console.log('✅ 应用初始化完成')
+      } catch (error) {
+        console.error('❌ 应用初始化失败:', error)
+        // 即使数据加载失败，也要设置其他功能
+      }
+      
+      // 设置页面可见性监听和数据刷新
       setupPageVisibility()
       startDataRefresh()
     },
@@ -155,34 +203,69 @@ const useStore = create(
 
     loadTokenData: async (token) => {
       const { isLoading } = get()
-      if (isLoading) return
+      if (isLoading) {
+        console.log(`⚠️ ${token} 数据正在加载中，跳过重复请求`)
+        return
+      }
+
+      console.log(`🔄 开始加载代币数据: ${token}`)
 
       // 检查缓存
       const cacheKey = `token_${token}`
+      console.log(`🔍 检查缓存键: ${CACHE_KEY_PREFIX}${cacheKey}`)
+      
+      // 先检查localStorage中是否有这个键
+      const rawCached = localStorage.getItem(CACHE_KEY_PREFIX + cacheKey)
+      console.log(`📝 localStorage原始数据:`, rawCached ? '存在' : '不存在')
+      
+      if (rawCached) {
+        try {
+          const parsedCache = JSON.parse(rawCached)
+          console.log(`📊 缓存数据结构:`, {
+            hasData: !!parsedCache.data,
+            timestamp: new Date(parsedCache.timestamp).toLocaleString(),
+            expires: new Date(parsedCache.expires).toLocaleString(),
+            now: new Date().toLocaleString(),
+            isExpired: Date.now() > parsedCache.expires
+          })
+        } catch (e) {
+          console.error(`❌ 缓存数据解析失败:`, e)
+        }
+      }
+      
       const cachedData = cacheUtils.get(cacheKey)
 
       if (cachedData) {
         console.log(`💾 使用缓存数据: ${token}`)
+        console.log(`📋 缓存数据预览:`, {
+          hasStats: !!cachedData.stats,
+          hasFutures: !!cachedData.futures,
+          dataKeys: Object.keys(cachedData)
+        })
+        
         set({
           data: cachedData,
           marketData: cachedData,
           lastUpdate: new Date(),
           isLoading: false
         })
-        return
+        return Promise.resolve(cachedData)
+      } else {
+        console.log(`❌ 缓存未命中，原因见上方详细信息`)
       }
 
       set({ isLoading: true })
 
       try {
-        console.log(`📊 正在加载代币数据: ${token}`)
+        console.log(`📊 从API加载代币数据: ${token}`)
         const response = await axios.get(`/api/token/${token}`)
 
-        if (response.data.success) {
+        if (response.data && response.data.success) {
           console.log(`✅ ${token} 数据加载成功`)
           const tokenData = response.data.data
 
           // 缓存数据
+          console.log(`💾 保存缓存数据到: ${CACHE_KEY_PREFIX}${cacheKey}`)
           cacheUtils.set(cacheKey, tokenData)
 
           set({
@@ -191,21 +274,28 @@ const useStore = create(
             lastUpdate: new Date(),
             isLoading: false
           })
+          
+          return Promise.resolve(tokenData)
         } else {
-          console.error(`❌ ${token} 数据加载失败:`, response.data.error)
+          console.error(`❌ ${token} 数据加载失败:`, response.data?.error || '未知错误')
           set({ isLoading: false })
-          throw new Error(response.data.error || 'Data loading failed')
+          const error = new Error(response.data?.error || 'Data loading failed')
+          throw error
         }
       } catch (error) {
-        console.error('Failed to load token data:', error)
+        console.error(`❌ 加载代币数据失败 (${token}):`, error)
         set({ isLoading: false })
 
-        // 重新抛出错误，让调用者处理
-        if (error.response && error.response.data && error.response.data.error) {
-          throw new Error(error.response.data.error)
-        } else {
-          throw new Error(error.message || '网络连接失败，请检查网络或稍后重试')
+        // 构建有意义的错误信息
+        let errorMessage = '网络连接失败，请检查网络或稍后重试'
+        if (error.response?.data?.error) {
+          errorMessage = error.response.data.error
+        } else if (error.message) {
+          errorMessage = error.message
         }
+
+        // 重新抛出错误，让调用者处理
+        throw new Error(errorMessage)
       }
     },
 
@@ -288,6 +378,42 @@ const useStore = create(
     setVolumeChartType: (type) => set({ volumeChartType: type }),
 
     // Utility functions
+    debugCache: () => {
+      console.log('🔍 缓存调试信息:')
+      
+      // 检查所有相关的localStorage键
+      const allKeys = Object.keys(localStorage)
+      const coinankKeys = allKeys.filter(key => key.startsWith('coinank'))
+      
+      console.log('📋 所有coinank相关键:', coinankKeys)
+      
+      coinankKeys.forEach(key => {
+        const value = localStorage.getItem(key)
+        if (key.startsWith('coinank_cache_')) {
+          try {
+            const parsed = JSON.parse(value)
+            console.log(`🔧 缓存键 ${key}:`, {
+              hasData: !!parsed.data,
+              timestamp: new Date(parsed.timestamp).toLocaleString(),
+              expires: new Date(parsed.expires).toLocaleString(),
+              isExpired: Date.now() > parsed.expires,
+              timeLeft: Math.round((parsed.expires - Date.now()) / 1000 / 60) + '分钟'
+            })
+          } catch (e) {
+            console.log(`❌ 缓存键 ${key} 解析失败:`, e)
+          }
+        } else {
+          console.log(`ℹ️ 其他键 ${key}:`, value?.length > 100 ? value.substring(0, 100) + '...' : value)
+        }
+      })
+      
+      const { currentToken } = get()
+      const expectedCacheKey = `coinank_cache_token_${currentToken}`
+      console.log(`🎯 当前token: ${currentToken}`)
+      console.log(`🎯 期望缓存键: ${expectedCacheKey}`)
+      console.log(`🎯 缓存键存在: ${!!localStorage.getItem(expectedCacheKey)}`)
+    },
+
     formatPrice: (price) => {
       if (!price) return '$0.00'
       

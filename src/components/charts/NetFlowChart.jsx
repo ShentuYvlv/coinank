@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box,
   Card,
@@ -15,15 +15,13 @@ import {
   Switch
 } from '@mui/material'
 import { ZoomOutMap as ZoomOutIcon } from '@mui/icons-material'
-import * as echarts from 'echarts'
+import ReactECharts from 'echarts-for-react'
 import { useStore } from '../../store/useStore'
 import axios from 'axios'
 
 const NetFlowChart = () => {
   const theme = useTheme()
   const { currentToken } = useStore()
-  const chartRef = useRef(null)
-  const chartInstance = useRef(null)
 
   // 状态管理
   const [data, setData] = useState(null)
@@ -141,7 +139,7 @@ const NetFlowChart = () => {
       })
 
       console.log('📡 NetFlow API 完整响应:', response)
-      console.log('📊 NetFlow API response:', response.data) // 调试日志
+      console.log('📊 NetFlow API response:', response.data)
 
       if (response.data && response.data.success) {
         const responseData = response.data.data
@@ -150,7 +148,6 @@ const NetFlowChart = () => {
         console.log('NetFlow data content:', responseData)
 
         if (responseData && typeof responseData === 'object') {
-          // 直接使用返回的数据对象，它包含 tss, longRatios, shortRatios, prices 等字段
           setData(responseData)
         } else {
           console.error('Invalid data format:', responseData)
@@ -174,106 +171,14 @@ const NetFlowChart = () => {
     fetchNetFlowData()
   }, [exchangeName, interval, currentToken])
 
-  // 初始化ECharts
-  useEffect(() => {
-    console.log('🎨 ECharts初始化useEffect触发')
-
-    const initChart = () => {
-      console.log('📊 尝试初始化ECharts...')
-      console.log('📊 chartRef.current状态:', chartRef.current)
-
-      if (chartRef.current) {
-        try {
-          console.log('🎨 开始初始化ECharts...')
-          chartInstance.current = echarts.init(chartRef.current, 'dark')
-          console.log('✅ ECharts initialized successfully')
-          console.log('📊 图表实例:', chartInstance.current)
-
-          // 监听窗口大小变化
-          const handleResize = () => {
-            chartInstance.current?.resize()
-          }
-          window.addEventListener('resize', handleResize)
-
-          // 如果有数据，立即更新图表
-          if (data) {
-            console.log('📊 初始化后立即更新图表')
-            setTimeout(() => updateChart(), 50)
-          }
-
-          return () => {
-            window.removeEventListener('resize', handleResize)
-          }
-
-        } catch (error) {
-          console.error('❌ Failed to initialize ECharts:', error)
-          console.error('❌ 错误详情:', error.stack)
-          setError('图表初始化失败')
-        }
-      } else {
-        console.log('❌ chartRef.current为null，延迟重试...')
-        // 如果DOM还没准备好，继续重试
-        setTimeout(initChart, 100)
-      }
-    }
-
-    // 立即尝试初始化
-    initChart()
-
-    return () => {
-      console.log('🧹 清理ECharts实例')
-      chartInstance.current?.dispose()
-    }
-  }, []) // 移除data依赖，避免重复初始化
-
-  // 更新图表数据
-  useEffect(() => {
-    console.log('🔄 图表数据或配置变化:', {
-      hasChartInstance: !!chartInstance.current,
-      hasData: !!data,
-      timeRangeStart,
-      timeRangeEnd,
-      showLongRatio,
-      showShortRatio,
-      showNetFlow,
-      showPrice
-    })
-
-    if (chartInstance.current && data) {
-      console.log('✅ 条件满足，开始更新图表')
-      updateChart()
-    } else {
-      console.log('❌ 更新图表条件不满足:', {
-        chartInstance: !!chartInstance.current,
-        data: !!data
-      })
-
-      // 如果有数据但没有图表实例，尝试重新初始化
-      if (data && !chartInstance.current && chartRef.current) {
-        console.log('🔄 尝试重新初始化图表实例...')
-        try {
-          chartInstance.current = echarts.init(chartRef.current, 'dark')
-          console.log('✅ 重新初始化成功，立即更新图表')
-          updateChart()
-        } catch (error) {
-          console.error('❌ 重新初始化失败:', error)
-        }
-      }
-    }
-  }, [data, timeRangeStart, timeRangeEnd, showLongRatio, showShortRatio, showNetFlow, showPrice])
-
-  // 更新图表
-  const updateChart = () => {
-    console.log('🎨 开始更新图表...')
-    console.log('📊 当前数据状态:', data)
-    console.log('📊 图表实例状态:', chartInstance.current ? '已初始化' : '未初始化')
-
+  // 生成ECharts配置选项
+  const getChartOption = () => {
     if (!data || typeof data !== 'object') {
       console.log('❌ NetFlow data not available:', data)
-      return
+      return {}
     }
 
-    console.log('✅ NetFlow data structure:', data) // 调试日志
+    console.log('✅ NetFlow data structure:', data)
 
     // 检查数据结构 - 根据实际API响应格式
     const timestamps = data.tss || []
@@ -288,20 +193,13 @@ const NetFlowChart = () => {
       prices: prices.length
     })
 
-    console.log('📊 Sample data preview:')
-    console.log('  - timestamps[0-2]:', timestamps.slice(0, 3))
-    console.log('  - longRatios[0-2]:', longRatios.slice(0, 3))
-    console.log('  - shortRatios[0-2]:', shortRatios.slice(0, 3))
-    console.log('  - prices[0-2]:', prices.slice(0, 3))
-
     if (timestamps.length === 0) {
       console.log('❌ No timestamp data available')
-      return
+      return {}
     }
 
-    // 根据时间范围过滤数据 - 修复滑动方向
+    // 根据时间范围过滤数据
     const totalDataPoints = timestamps.length
-    // 反转滑动逻辑：左边控制左侧（最新数据），右边控制右侧（历史数据）
     const startIndex = Math.floor(totalDataPoints * (100 - timeRangeEnd) / 100)
     const endIndex = Math.ceil(totalDataPoints * (100 - timeRangeStart) / 100)
 
@@ -318,13 +216,6 @@ const NetFlowChart = () => {
     const filteredLongRatios = longRatios.slice(startIndex, endIndex)
     const filteredShortRatios = shortRatios.slice(startIndex, endIndex)
     const filteredPrices = prices.slice(startIndex, endIndex)
-
-    console.log('📊 过滤后数据长度:', {
-      filteredTimestamps: filteredTimestamps.length,
-      filteredLongRatios: filteredLongRatios.length,
-      filteredShortRatios: filteredShortRatios.length,
-      filteredPrices: filteredPrices.length
-    })
 
     // 反转数据，使最新的在左边
     const reversedTimestamps = [...filteredTimestamps].reverse()
@@ -362,13 +253,6 @@ const NetFlowChart = () => {
       sampleNetFlows: netFlows.slice(0, 3),
       samplePriceData: priceData.slice(0, 3),
       priceRange: priceRange
-    })
-
-    console.log('🎛️ 显示选项:', {
-      showLongRatio,
-      showShortRatio,
-      showNetFlow,
-      showPrice
     })
 
     // 构建ECharts配置
@@ -529,35 +413,9 @@ const NetFlowChart = () => {
     console.log('📊 系列数量:', series.length)
     console.log('📊 标签数量:', labels.length)
 
-    try {
-      if (!chartInstance.current) {
-        console.error('❌ 图表实例不存在')
-        setError('图表实例未初始化')
-        return
-      }
-
-      console.log('🎨 开始设置ECharts选项...')
-      console.log('📊 图表容器尺寸:', chartRef.current?.offsetWidth, 'x', chartRef.current?.offsetHeight)
-      chartInstance.current.setOption(option, true)
-      console.log('✅ Chart updated successfully with', series.length, 'series')
-      console.log('✅ 图表更新完成')
-
-      // 强制重绘
-      setTimeout(() => {
-        if (chartInstance.current) {
-          chartInstance.current.resize()
-          console.log('🔄 强制重绘图表')
-        }
-      }, 100)
-    } catch (error) {
-      console.error('❌ Failed to update chart:', error)
-      console.error('❌ 错误堆栈:', error.stack)
-      setError('图表更新失败')
-    }
+    return option
   }
-  
 
-  
   if (loading) {
     return (
       <Card sx={{ height: '100%' }}>
@@ -724,12 +582,12 @@ const NetFlowChart = () => {
         </Box>
       </Box>
       <CardContent sx={{ height: 400, p: 1 }}>
-        <div
-          ref={chartRef}
-          style={{
-            width: '100%',
-            height: '100%'
-          }}
+        <ReactECharts
+          option={getChartOption()}
+          style={{ height: '100%', width: '100%' }}
+          notMerge={true}
+          lazyUpdate={true}
+          theme="dark"
         />
       </CardContent>
     </Card>

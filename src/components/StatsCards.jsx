@@ -69,9 +69,98 @@ function StatsCard({ title, value, subtitle, icon: Icon, color, delay = 0 }) {
 }
 
 function StatsCards() {
-  const { data, formatPrice, formatCurrency } = useStore()
+  const { data, isLoading, currentToken, formatPrice, formatCurrency } = useStore((state) => ({
+    data: state.data,
+    isLoading: state.isLoading,
+    currentToken: state.currentToken,
+    formatPrice: state.formatPrice,
+    formatCurrency: state.formatCurrency
+  }))
   
-  if (!data) return null
+  // 显示加载状态
+  if (isLoading) {
+    return (
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {[0, 1, 2, 3].map((index) => (
+          <Grid item xs={12} sm={6} md={3} key={index}>
+            <Card sx={{ height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <CardContent>
+                <Box sx={{ textAlign: 'center' }}>
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  >
+                    <ChartIcon sx={{ fontSize: 24, color: 'text.secondary' }} />
+                  </motion.div>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                    加载中...
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+    )
+  }
+
+  // 显示默认状态（如果没有数据）
+  if (!data) {
+    const defaultStats = {
+      current_price: 0,
+      price_change_percent: 0,
+      volume_24h: 0,
+      exchanges_count: 0
+    }
+
+    return (
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatsCard
+            title="当前价格"
+            value="$0.00"
+            subtitle="数据加载中..."
+            icon={DollarIcon}
+            color="#00d4ff"
+            delay={0}
+          />
+        </Grid>
+        
+        <Grid item xs={12} sm={6} md={3}>
+          <StatsCard
+            title="24H成交量"
+            value="$0"
+            subtitle="数据加载中..."
+            icon={ChartIcon}
+            color="#00ff88"
+            delay={0.1}
+          />
+        </Grid>
+        
+        <Grid item xs={12} sm={6} md={3}>
+          <StatsCard
+            title="资金费率"
+            value="0.00%"
+            subtitle="数据加载中..."
+            icon={ExchangeIcon}
+            color="#ffb800"
+            delay={0.2}
+          />
+        </Grid>
+        
+        <Grid item xs={12} sm={6} md={3}>
+          <StatsCard
+            title="交易所数量"
+            value="0"
+            subtitle="数据加载中..."
+            icon={BuildingIcon}
+            color="#00d4ff"
+            delay={0.3}
+          />
+        </Grid>
+      </Grid>
+    )
+  }
 
   const stats = data.stats || {}
   const priceChange = stats.price_change_percent || 0
@@ -92,9 +181,9 @@ function StatsCards() {
       
       <Grid item xs={12} sm={6} md={3}>
         <StatsCard
-          title="总持仓量"
-          value={formatCurrency(stats.total_oi)}
-          subtitle="期货市场"
+          title="24H成交量"
+          value={formatCurrency(stats.volume_24h)}
+          subtitle="全网统计"
           icon={ChartIcon}
           color="#00ff88"
           delay={0.1}
@@ -103,9 +192,9 @@ function StatsCards() {
       
       <Grid item xs={12} sm={6} md={3}>
         <StatsCard
-          title="24h交易量"
-          value={formatCurrency(stats.total_volume)}
-          subtitle="现货市场"
+          title="资金费率"
+          value={`${(stats.avg_funding_rate * 100 || 0).toFixed(4)}%`}
+          subtitle="8小时均值"
           icon={ExchangeIcon}
           color="#ffb800"
           delay={0.2}

@@ -95,19 +95,45 @@ function App() {
     const urlParams = new URLSearchParams(window.location.search)
     const basecoin = urlParams.get('basecoin')
 
+    const initializeWithToken = async () => {
+      try {
+        // 等待一小段时间，确保Zustand persist完全恢复状态
+        await new Promise(resolve => setTimeout(resolve, 100))
+        
+        console.log('🔍 App.jsx初始化检查:', {
+          hasBasecoin: !!basecoin,
+          basecoinValue: basecoin,
+          localStorage: {
+            hasZustandStorage: !!localStorage.getItem('coinank-storage')
+          }
+        })
+        
     if (basecoin) {
       console.log(`🔗 从URL参数加载代币: ${basecoin}`)
-      // 先初始化应用，然后切换代币
-      initializeApp().then(() => {
-        switchToken(basecoin.toUpperCase()).catch(error => {
-          console.error('URL参数代币加载失败:', error)
-          // 如果URL参数的代币无效，回退到默认代币
-          initializeApp()
-        })
-      })
+          
+          // 先初始化应用
+          await initializeApp()
+          
+          // 然后尝试切换到URL指定的代币
+          try {
+            await switchToken(basecoin.toUpperCase())
+            console.log(`✅ 成功从URL参数切换到代币: ${basecoin}`)
+          } catch (switchError) {
+            console.error('URL参数代币切换失败:', switchError)
+            // 如果URL参数的代币无效，已经有默认数据，不需要重新初始化
+            console.log('🔄 保持默认代币状态')
+          }
     } else {
-      initializeApp()
+          // 没有URL参数，正常初始化
+          await initializeApp()
     }
+      } catch (initError) {
+        console.error('应用初始化失败:', initError)
+        // 即使初始化失败，也要确保基本的应用状态
+      }
+    }
+
+    initializeWithToken()
   }, [initializeApp, switchToken])
 
   return (
