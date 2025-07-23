@@ -49,7 +49,7 @@ function ChartsSection() {
   return (
     <Box sx={{ display: 'block', mb: 4 }}>
       {/* Price Chart and OI Distribution in same row */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
+      <Grid container spacing={2} sx={{ mb: 1 }}>
         <Grid item xs={12} lg={10}>
           <PriceChart />
         </Grid>
@@ -59,7 +59,7 @@ function ChartsSection() {
       </Grid>
 
       {/* Net Flow Chart - 占据整行 */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
+      <Grid container spacing={2} sx={{ mb: 1 }}>
         <Grid item xs={12}>
           <NetFlowChart />
         </Grid>

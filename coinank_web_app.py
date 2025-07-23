@@ -785,6 +785,7 @@ def get_openinterest_data(token):
             'error': 'API client not initialized'
         }), 500
 
+
 def schedule_data_refresh():
     """定时刷新数据"""
     global update_timer

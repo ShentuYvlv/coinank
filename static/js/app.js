@@ -585,7 +585,8 @@ class CoinankApp {
         console.log('🎨 更新UI界面...');
         
         // 更新统计卡片
-        this.updateStatsCards();
+        // this.updateStatsCards();
+
         
         // 更新图表
         this.updateCharts();
@@ -610,27 +611,27 @@ class CoinankApp {
         }, 100);
     }
 
-    updateStatsCards() {
-        const stats = this.data.stats;
+    // updateStatsCards() {
+    //     const stats = this.data.stats;
         
-        // 当前价格
-        document.getElementById('currentPrice').textContent = this.formatPrice(stats.current_price);
+    //     // 当前价格
+    //     document.getElementById('currentPrice').textContent = this.formatPrice(stats.current_price);
         
-        // 价格变化
-        const priceChangeEl = document.getElementById('priceChange');
-        const changePercent = stats.price_change_percent || 0;
-        priceChangeEl.textContent = `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`;
-        priceChangeEl.className = changePercent >= 0 ? 'text-success' : 'text-danger';
+    //     // 价格变化
+    //     const priceChangeEl = document.getElementById('priceChange');
+    //     const changePercent = stats.price_change_percent || 0;
+    //     priceChangeEl.textContent = `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`;
+    //     priceChangeEl.className = changePercent >= 0 ? 'text-success' : 'text-danger';
         
-        // 总持仓量
-        document.getElementById('totalOI').textContent = this.formatCurrency(stats.total_oi);
+    //     // 总持仓量
+    //     document.getElementById('totalOI').textContent = this.formatCurrency(stats.total_oi);
         
-        // 24h交易量
-        document.getElementById('totalVolume').textContent = this.formatCurrency(stats.total_volume);
+    //     // 24h交易量
+    //     document.getElementById('totalVolume').textContent = this.formatCurrency(stats.total_volume);
         
-        // 交易所数量
-        document.getElementById('exchangeCount').textContent = stats.exchanges_count;
-    }
+    //     // 交易所数量
+    //     document.getElementById('exchangeCount').textContent = stats.exchanges_count;
+    // }
 
     updateCharts() {
         this.updatePriceChart();
