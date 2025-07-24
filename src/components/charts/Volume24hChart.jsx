@@ -59,7 +59,7 @@ const Volume24hChart = () => {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [timeRangeStart, setTimeRangeStart] = useState(0)
+  const [timeRangeStart, setTimeRangeStart] = useState(50)
   const [timeRangeEnd, setTimeRangeEnd] = useState(100)
 
   // 计算价格轴的合理范围
@@ -177,10 +177,10 @@ const Volume24hChart = () => {
     const option = {
       backgroundColor: 'transparent',
       grid: {
-        top: 40,
-        right: 20,
-        bottom: 40,
-        left: 60,
+        top: 10,
+        right: 10,
+        bottom: 20,
+        left: 30,
         containLabel: true
       },
       tooltip: {
@@ -380,7 +380,7 @@ const Volume24hChart = () => {
           </IconButton>
         }
       />
-      <Box sx={{ px: 2, pb: 1 }}>
+      <Box sx={{ px: 2, pb: 1, mb: -1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography variant="caption">时间周期:</Typography>
           <Box sx={{ flex: 1, mx: 2 }}>

@@ -556,8 +556,13 @@ def get_token_api(token):
     # 移除代币限制，允许用户输入任意代币
     token = token.upper()  # 转换为大写
 
+    print(f"\n=== API调试信息 ===")
+    print(f"📊 请求代币: {token}")
+    print(f"🔍 请求参数: {dict(request.args)}")
+
     # 检查是否请求基础数据
     basic_only = request.args.get('basic', 'false').lower() == 'true'
+    print(f"📋 基础数据模式: {basic_only}")
 
     try:
         if basic_only:
@@ -568,22 +573,42 @@ def get_token_api(token):
             data = get_token_data(token)
 
         if data:
+            # 详细调试返回的数据结构
+            print(f"✅ 数据获取成功，数据键: {list(data.keys())}")
+            print(f"📊 oi_data 长度: {len(data.get('oi_data', []))}")
+            print(f"📊 futures_markets 长度: {len(data.get('futures_markets', []))}")
+            print(f"📊 spot_markets 长度: {len(data.get('spot_markets', []))}")
+
+            # 打印样本数据
+            if data.get('oi_data'):
+                print(f"📊 oi_data 样本: {data['oi_data'][0]}")
+            if data.get('futures_markets'):
+                print(f"📊 futures_markets 样本: {data['futures_markets'][0]}")
+            if data.get('spot_markets'):
+                print(f"📊 spot_markets 样本: {data['spot_markets'][0]}")
+
             # 如果成功获取数据，将代币添加到支持列表中（如果不存在）
             if token not in supported_tokens:
                 supported_tokens.append(token)
                 print(f"✅ 新增支持代币: {token}")
 
+            print(f"=== API调试结束 ===\n")
             return jsonify({
                 'success': True,
                 'data': data
             })
         else:
+            print(f"❌ 数据为空")
+            print(f"=== API调试结束 ===\n")
             return jsonify({
                 'success': False,
                 'error': f'输入代币有误：无法获取 {token} 的数据，请检查代币符号是否正确'
             }), 400
     except Exception as e:
         print(f"❌ 获取代币 {token} 数据时发生异常: {e}")
+        import traceback
+        print(f"❌ 详细错误: {traceback.format_exc()}")
+        print(f"=== API调试结束 ===\n")
         return jsonify({
             'success': False,
             'error': f'输入代币有误：{token} 数据获取失败，请检查代币符号是否正确'
@@ -785,46 +810,113 @@ def get_openinterest_data(token):
             'error': 'API client not initialized'
         }), 500
 
+@app.route('/api/fundingrate/<token>')
+def get_fundingrate_data(token):
+    """获取资金费率数据"""
+    token = token.upper()  # 转换为大写
 
-def schedule_data_refresh():
-    """定时刷新数据"""
-    global update_timer
+    # 获取请求参数
+    interval = request.args.get('interval', '1h')
 
-    def refresh_all_tokens():
-        """刷新所有支持的代币数据"""
+    # 构建缓存键
+    cache_key = f"{token}_fundingrate_{interval}"
+    current_time = time.time()
+
+    # 检查缓存（资金费率缓存时间较短，30分钟）
+    FUNDING_CACHE_DURATION = 1800  # 30分钟
+    if (cache_key in data_cache and
+        cache_key in last_update_time and
+        current_time - last_update_time[cache_key] < FUNDING_CACHE_DURATION):
+        print(f"📊 返回缓存的资金费率数据: {token}")
+        return jsonify(data_cache[cache_key])
+
+    # 获取新数据
+    if api_client:
         try:
-            for token in supported_tokens:
-                print(f"🔄 定时刷新 {token} 数据...")
-                # 清除缓存
-                cache_keys_to_remove = [key for key in data_cache.keys() if key.startswith(f"{token}_")]
-                for key in cache_keys_to_remove:
-                    del data_cache[key]
-                    if key in last_update_time:
-                        del last_update_time[key]
+            # 使用coin_api.py中的方法获取数据
+            print(f"📊 开始获取 {token} 资金费率数据...")
 
-                # 重新获取数据
-                data = get_token_data(token)
-                if data:
-                    print(f"✅ {token} 数据刷新成功")
-                else:
-                    print(f"❌ {token} 数据刷新失败")
+            # 顺序获取数据，避免并发问题 - 使用正确的参数传递
+            print(f"📊 获取资金费率图表数据...")
+            price_data = api_client.fetch_funding_rate_chart(
+                base_coin=token,
+                interval=interval  # 支持前端传递的interval参数
+            )
+            print(f"📊 资金费率图表数据结果: {price_data.get('success') if price_data else 'None'}")
+
+            print(f"📊 获取资金费率历史数据...")
+            funding_data = api_client.fetch_funding_rate_history(token)
+            print(f"📊 资金费率历史数据结果: {funding_data.get('success') if funding_data else 'None'}")
+
+            # 检查数据获取结果，允许部分失败
+            price_success = price_data and price_data.get('success')
+            funding_success = funding_data and funding_data.get('success')
+            
+            print(f"📊 数据获取结果: price_success={price_success}, funding_success={funding_success}")
+            
+            if price_success or funding_success:
+                # 处理图表数据 - 资金费率图表API已包含价格和费率数据
+                chart_data = price_data.get('data', {}) if price_success else {}
+                
+                # 资金费率图表API返回的数据格式正好符合前端期望：
+                # chartData: [timestamp, price, exchange1_rate, exchange2_rate, ...]
+                # exchanges: ["Binance", "Okex", "Bybit", ...]
+                processed_price_data = {
+                    'exchanges': chart_data.get('exchanges', []),
+                    'type': chart_data.get('type', 'USDT'),
+                    'interval': chart_data.get('interval', interval),
+                    'baseCoin': chart_data.get('baseCoin', token),
+                    'chartData': chart_data.get('chartData', [])
+                }
+                
+                # 处理历史数据 - 保持原始格式供后续扩展使用
+                processed_funding_data = funding_data.get('data', []) if funding_success else []
+                
+                # 合并数据
+                result_data = {
+                    'success': True,
+                    'data': {
+                        'priceData': processed_price_data,
+                        'fundingData': processed_funding_data
+                    },
+                    'warnings': []
+                }
+                
+                # 添加警告信息
+                if not price_success:
+                    result_data['warnings'].append(f'{token} 资金费率图表数据暂不可用')
+                if not funding_success:
+                    result_data['warnings'].append(f'{token} 资金费率历史数据暂不可用')
+
+                # 缓存数据
+                data_cache[cache_key] = result_data
+                last_update_time[cache_key] = current_time
+                print(f"✅ 资金费率数据处理完成: {token} (warnings: {len(result_data['warnings'])})")
+                return jsonify(result_data)
+            else:
+                print(f"❌ 资金费率数据完全获取失败: price_success={price_success}, funding_success={funding_success}")
+                return jsonify({
+                    'success': False,
+                    'error': f'{token} 资金费率数据暂不可用，可能该代币不支持资金费率查询'
+                }), 404
+
         except Exception as e:
-            print(f"❌ 定时刷新数据时出错: {e}")
+            print(f"❌ 资金费率数据获取异常: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+    else:
+        return jsonify({
+            'success': False,
+            'error': 'API client not initialized'
+        }), 500
 
-        # 安排下一次刷新
-        schedule_data_refresh()
-
-    # 5分钟后执行刷新
-    update_timer = threading.Timer(300.0, refresh_all_tokens)  # 300秒 = 5分钟
-    update_timer.daemon = True
-    update_timer.start()
-    print("⏰ 已安排5分钟后的数据刷新")
 
 def start_background_tasks():
     """启动后台任务"""
-    # 启动定时刷新
-    schedule_data_refresh()
-    print("🔄 后台数据刷新任务已启动")
+    # 移除自动刷新功能，只保留手动刷新
+    print("🔄 后台任务已启动（已禁用自动刷新）")
 
 def kill_process_on_port(port):
     """终止占用端口的进程"""

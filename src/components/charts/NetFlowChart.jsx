@@ -29,8 +29,8 @@ const NetFlowChart = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [exchangeName, setExchangeName] = useState('ALL')
-  const [interval, setInterval] = useState('5m')
-  const [timeRangeStart, setTimeRangeStart] = useState(0)
+  const [interval, setInterval] = useState('1h')
+  const [timeRangeStart, setTimeRangeStart] = useState(50)
   const [timeRangeEnd, setTimeRangeEnd] = useState(100)
 
   // 控制数据集显示的状态
@@ -365,9 +365,10 @@ const NetFlowChart = () => {
         top: 10
       },
       grid: {
-        left: '3%',
-        right: '4%',
-        bottom: '3%',
+        left: '1%',
+        right: '1%',
+        bottom: '1%',
+        top: '1%',
         containLabel: true
       },
       xAxis: {
@@ -573,7 +574,7 @@ const NetFlowChart = () => {
           </IconButton>
         }
       />
-      <Box sx={{ px: 2, pb: 1 }}>
+      <Box sx={{ px: 2, pb: 1, mb: -1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography variant="caption">时间周期:</Typography>
           <Box sx={{ flex: 1, mx: 2 }}>

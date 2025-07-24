@@ -320,23 +320,17 @@ class CoinankApp {
             this.updateVolumeTimeRangeLabel();
         }
 
-        // 页面可见性变化
+        // 页面可见性变化（移除自动刷新逻辑）
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
-                console.log('📴 页面隐藏，暂停更新');
+                console.log('📴 页面隐藏');
                 this.isPageHidden = true;
                 this.lastHiddenTime = Date.now();
             } else {
-                console.log('👀 页面显示，恢复更新');
+                console.log('👀 页面显示');
                 this.isPageHidden = false;
-                // 只有在页面隐藏超过5分钟才重新加载数据
-                const now = Date.now();
-                if (!this.lastHiddenTime || (now - this.lastHiddenTime) > 5 * 60 * 1000) {
-                    console.log('🔄 页面隐藏时间较长，刷新数据');
-                    this.refreshCurrentToken();
-                } else {
-                    console.log('⏭️ 页面隐藏时间较短，跳过刷新');
-                }
+                // 移除自动刷新逻辑，只记录页面状态
+                console.log('🚫 自动刷新功能已禁用，请手动刷新数据');
             }
         });
 

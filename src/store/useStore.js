@@ -135,9 +135,9 @@ const useStore = create(
         // 即使数据加载失败，也要设置其他功能
       }
       
-      // 设置页面可见性监听和数据刷新
+      // 设置页面可见性监听（移除自动刷新）
       setupPageVisibility()
-      startDataRefresh()
+      console.log('🚫 自动刷新功能已禁用，仅支持手动刷新')
     },
     
     setupPageVisibility: () => {
@@ -146,7 +146,7 @@ const useStore = create(
         set({ isPageVisible: isVisible })
 
         // 移除自动刷新逻辑，只更新页面可见状态
-        // 数据刷新由定时器控制，不再由页面切换触发
+        // 自动刷新功能已完全禁用，只保留手动刷新
         console.log(`📱 页面可见性变化: ${isVisible ? '可见' : '隐藏'}`)
       }
 
@@ -157,49 +157,13 @@ const useStore = create(
       }
     },
 
+    // 移除自动刷新功能，只保留手动刷新
     startDataRefresh: () => {
-      const { refreshInterval, stopDataRefresh } = get()
-      
-      if (refreshInterval) {
-        stopDataRefresh()
-      }
-      
-      const interval = setInterval(() => {
-        const { refreshData, isPageVisible, lastUpdate } = get()
-
-        // 检查页面是否可见
-        if (!isPageVisible) {
-          console.log('⏸️ 页面不可见，跳过定时刷新')
-          return
-        }
-
-        // 检查距离上次更新是否已经超过5分钟
-        const now = new Date()
-        if (lastUpdate) {
-          const timeDiff = now - lastUpdate
-          const minsSinceUpdate = Math.floor(timeDiff / (1000 * 60))
-          console.log(`⏰ 距离上次更新: ${minsSinceUpdate} 分钟`)
-
-          // 如果距离上次更新不足4分钟，跳过刷新
-          if (timeDiff < 4 * 60 * 1000) {
-            console.log('⏭️ 距离上次更新不足4分钟，跳过刷新')
-            return
-          }
-        }
-
-        console.log('🔄 执行定时数据刷新')
-        refreshData()
-      }, 5 * 60 * 1000) // 5 minutes
-      
-      set({ refreshInterval: interval })
+      console.log('🚫 自动刷新功能已禁用')
     },
-    
+
     stopDataRefresh: () => {
-      const { refreshInterval } = get()
-      if (refreshInterval) {
-        clearInterval(refreshInterval)
-        set({ refreshInterval: null })
-      }
+      console.log('🚫 自动刷新功能已禁用')
     },
 
     loadTokenData: async (token) => {
@@ -265,6 +229,17 @@ const useStore = create(
           console.log(`✅ ${token} 数据加载成功`)
           const tokenData = response.data.data
 
+          // 详细调试API返回的数据
+          console.log('=== Store 数据调试 ===')
+          console.log('API返回数据键:', Object.keys(tokenData))
+          console.log('oi_data:', tokenData.oi_data)
+          console.log('oi_data 长度:', tokenData.oi_data?.length)
+          console.log('futures_markets:', tokenData.futures_markets)
+          console.log('futures_markets 长度:', tokenData.futures_markets?.length)
+          console.log('spot_markets:', tokenData.spot_markets)
+          console.log('spot_markets 长度:', tokenData.spot_markets?.length)
+          console.log('=== Store 数据调试结束 ===')
+
           // 缓存数据
           console.log(`💾 保存缓存数据到: ${CACHE_KEY_PREFIX}${cacheKey}`)
           cacheUtils.set(cacheKey, tokenData)
@@ -275,7 +250,7 @@ const useStore = create(
             lastUpdate: new Date(),
             isLoading: false
           })
-          
+
           return Promise.resolve(tokenData)
         } else {
           console.error(`❌ ${token} 数据加载失败:`, response.data?.error || '未知错误')

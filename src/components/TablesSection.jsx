@@ -20,7 +20,26 @@ import { useStore } from '../store/useStore'
 
 const TablesSection = () => {
   const { marketData, currentToken, formatPrice, formatCurrencyWithComma } = useStore()
-  
+
+  // 详细调试信息
+  console.log('=== TablesSection 调试信息 ===')
+  console.log('marketData:', marketData)
+  console.log('marketData keys:', marketData ? Object.keys(marketData) : 'null')
+  console.log('futures_markets:', marketData?.futures_markets)
+  console.log('futures_markets length:', marketData?.futures_markets?.length)
+  console.log('futures_markets type:', typeof marketData?.futures_markets)
+  console.log('spot_markets:', marketData?.spot_markets)
+  console.log('spot_markets length:', marketData?.spot_markets?.length)
+  console.log('spot_markets type:', typeof marketData?.spot_markets)
+  if (marketData?.futures_markets && Array.isArray(marketData.futures_markets)) {
+    console.log('futures_markets sample:', marketData.futures_markets[0])
+  }
+  if (marketData?.spot_markets && Array.isArray(marketData.spot_markets)) {
+    console.log('spot_markets sample:', marketData.spot_markets[0])
+  }
+  console.log('currentToken:', currentToken)
+  console.log('=== TablesSection 调试结束 ===')
+
   const formatPercent = (num) => {
     if (num === null || num === undefined) return '-'
     const formatted = num.toFixed(2)
@@ -149,7 +168,7 @@ const TablesSection = () => {
   }
   
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, mb: 3 }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mb: 1 }}>
       <FuturesTable />
       <SpotTable />
     </Box>

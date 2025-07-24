@@ -2,10 +2,45 @@ import React from 'react'
 import { Grid, Box, Card, CardContent, Typography, CircularProgress } from '@mui/material'
 import PriceChart from './charts/PriceChart'
 import OIDistributionChart from './charts/OIDistributionChart'
-import NetFlowChart from './charts/NetFlowChart'
-
 import Volume24hChart from './charts/Volume24hChart'
+import FundingRateChart from './charts/FundingRateChart'
 import { useStore } from '../store/useStore'
+
+// 第一部分：价格图表和OI分布
+const ChartSection1 = ({ data, currentToken }) => (
+  <Box sx={{ display: 'block', mb: 1 }}>
+    <Grid container spacing={2} sx={{ mb: 1 }}>
+      <Grid item xs={12} lg={10}>
+        <PriceChart data={data} currentToken={currentToken} />
+      </Grid>
+      <Grid item xs={12} lg={2}>
+        <OIDistributionChart data={data} currentToken={currentToken} />
+      </Grid>
+    </Grid>
+  </Box>
+);
+
+// 第二部分：资金费率图表（中间部分）
+const ChartSection2 = ({ data, currentToken }) => (
+  <Box sx={{ display: 'block', mb: 1 }}>
+    <Grid container spacing={2}>
+      <Grid item xs={12}> {/* 修正为xs=12 */}
+        <FundingRateChart data={data} currentToken={currentToken} />
+      </Grid>
+    </Grid>
+  </Box>
+);
+
+// 第三部分：24小时成交量图表
+const ChartSection3 = ({ data, currentToken }) => (
+  <Box sx={{ display: 'block' }}>
+    <Grid container spacing={2} sx={{ mb: 1 }}>
+      <Grid item xs={12}>
+        <Volume24hChart data={data} currentToken={currentToken} />
+      </Grid>
+    </Grid>
+  </Box>
+);
 
 function ChartsSection() {
   const { data, isLoading, currentToken } = useStore((state) => ({
@@ -47,32 +82,14 @@ function ChartsSection() {
   }
 
   return (
-    <Box sx={{ display: 'block', mb: 4 }}>
-      {/* Price Chart and OI Distribution in same row */}
-      <Grid container spacing={2} sx={{ mb: 1 }}>
-        <Grid item xs={12} lg={10}>
-          <PriceChart />
-        </Grid>
-        <Grid item xs={12} lg={2}>
-          <OIDistributionChart />
-        </Grid>
-      </Grid>
-
-      {/* Net Flow Chart - 占据整行 */}
-      <Grid container spacing={2} sx={{ mb: 1 }}>
-        <Grid item xs={12}>
-          <NetFlowChart />
-        </Grid>
-      </Grid>
-      
-      {/* 24H Volume Chart */}
-      <Grid container spacing={2}>
-        <Grid item xs={12}>
-          <Volume24hChart />
-        </Grid>
-      </Grid>
-    </Box>
+    <>
+      <ChartSection1 data={data} currentToken={currentToken} />
+      <ChartSection2 data={data} currentToken={currentToken} />
+      <ChartSection3 data={data} currentToken={currentToken} />
+    </>
   )
 }
 
-export default ChartsSection
+// export default ChartsSection
+
+export { ChartSection1, ChartSection2, ChartSection3 };

@@ -197,10 +197,10 @@ class CoinankAPI:
         print("�🔗 建立新的coinank会话...")
 
         main_headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': 'zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2',
+            'Accept-Encoding': 'gzip, deflate, br, zstd',
             'Connection': 'keep-alive',
             'Upgrade-Insecure-Requests': '1',
             'Sec-Fetch-Dest': 'document',
@@ -234,7 +234,7 @@ class CoinankAPI:
             return False
     
     def get_api_headers(self):
-        """获取API请求头"""
+        """获取API请求头 - 使用与fund.py相同的成功配置"""
         timestamp = int(time.time() * 10000000)
         uuid_part = "-b31e-c547-d299-b6d07b7631aba2c903cc"
         key_string = f"{uuid_part}|{timestamp}"
@@ -242,12 +242,11 @@ class CoinankAPI:
         api_key = base64.b64encode(key_string.encode()).decode()
         
         return {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:140.0) Gecko/20100101 Firefox/140.0',
             'Accept': 'application/json, text/plain, */*',
-            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': 'zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2',
+            'Accept-Encoding': 'gzip, deflate, br, zstd',
             'client': 'web',
-            'token': '',
             'web-version': '101',
             'coinank-apikey': api_key,
             'Origin': 'https://coinank.com',
@@ -256,19 +255,18 @@ class CoinankAPI:
             'Sec-Fetch-Dest': 'empty',
             'Sec-Fetch-Mode': 'cors',
             'Sec-Fetch-Site': 'same-site',
-            'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"'
+            'TE': 'trailers'
         }
     
-    def fetch_data_with_retry(self, url, params, data_type, max_retries=2):
+    def fetch_data_with_retry(self, url, params, data_type, max_retries=2, allow_empty_response=False):
         """带重试的数据获取 - 优化版本"""
         for attempt in range(max_retries):
             try:
                 headers = self.get_api_headers()
-                response = self.session.get(url, headers=headers, params=params, timeout=8)
+                response = self.session.get(url, headers=headers, params=params, timeout=10)
 
                 print(f"🔍 {data_type}请求: {url}")
+                print(f"📊 参数: {params}")
                 print(f"📊 响应状态: {response.status_code}")
 
                 if response.status_code == 200:
@@ -276,6 +274,7 @@ class CoinankAPI:
                     content_type = response.headers.get('content-type', '').lower()
                     if 'application/json' not in content_type:
                         print(f"⚠️ {data_type}响应不是JSON格式: {content_type}")
+                        print(f"响应内容前500字符: {response.text[:500]}")
                         continue
 
                     try:
@@ -286,21 +285,43 @@ class CoinankAPI:
                             print(f"✅ {data_type}数据获取成功 ({data_count} 项)")
                             return data
                         else:
-                            print(f"❌ {data_type}数据API错误: {data.get('msg', '未知错误')}")
+                            error_msg = data.get('msg', '未知错误')
+                            print(f"❌ {data_type}数据API错误: {error_msg}")
+                            
+                            # 对于某些特定错误，可以返回空响应而不是失败
+                            if allow_empty_response and ('invalid params' in error_msg.lower() or 'not found' in error_msg.lower()):
+                                print(f"⚠️ {data_type}数据不可用，返回空响应")
+                                return {
+                                    'success': True,
+                                    'data': {},
+                                    'msg': f'{data_type}数据暂不可用'
+                                }
                     except ValueError as json_error:
                         print(f"❌ {data_type}JSON解析错误: {json_error}")
+                        print(f"响应内容: {response.text[:200]}")
                 else:
                     print(f"❌ {data_type}数据HTTP错误: {response.status_code}")
+                    print(f"响应内容: {response.text[:200]}")
 
             except Exception as e:
                 print(f"❌ {data_type}数据请求异常 (尝试{attempt+1}): {e}")
 
             if attempt < max_retries - 1:
-                wait_time = 1  # 减少重试等待时间
+                wait_time = 2
                 print(f"⏳ 等待 {wait_time} 秒后重试...")
                 time.sleep(wait_time)
 
         print(f"❌ {data_type}数据获取失败，已尝试 {max_retries} 次")
+        
+        # 如果允许空响应，返回空数据而不是None
+        if allow_empty_response:
+            print(f"⚠️ 返回 {data_type} 空响应作为降级处理")
+            return {
+                'success': True,
+                'data': {},
+                'msg': f'{data_type}数据暂不可用'
+            }
+        
         return None
     
     def fetch_chart_data(self, base_coin="PEPE", interval="1d", data_type="USD"):
@@ -356,6 +377,34 @@ class CoinankAPI:
         }
         return self.fetch_data_with_retry(url, params, "净流入")
     
+    def fetch_funding_rate_chart(self, base_coin="PEPE", exchange_type="USDT", funding_type=1, interval="5m"):
+        """获取资金费率图表数据 - 支持降级处理"""
+        url = f"{self.base_url}/api/fundingRate/chartsV2"
+        params = {
+            'baseCoin': base_coin,
+            'exchangeType': exchange_type,
+            'fundingType': funding_type,
+            'interval': interval
+        }
+        
+        print(f"🔍 获取 {base_coin} 资金费率图表数据，参数: {params}")
+        
+        # 使用允许空响应的选项，避免某些代币不支持时导致API失败
+        return self.fetch_data_with_retry(url, params, "资金费率图表", max_retries=2, allow_empty_response=True)
+    
+    def fetch_funding_rate_history(self, base_coin="PEPE", exchange_type="USDT"):
+        """获取资金费率历史数据 - 支持降级处理"""
+        url = f"{self.base_url}/api/fundingRate/hist"
+        params = {
+            'baseCoin': base_coin,
+            'exchangeType': exchange_type
+        }
+        
+        print(f"🔍 获取 {base_coin} 资金费率历史数据，参数: {params}")
+        
+        # 使用允许空响应的选项，避免某些代币不支持时导致API失败
+        return self.fetch_data_with_retry(url, params, "资金费率历史", max_retries=2, allow_empty_response=True)
+    
     def get_complete_token_data(self, token="PEPE"):
         """获取完整的代币数据 - 优化版本：并行请求"""
         print(f"📊 正在获取 {token} 完整数据...")
@@ -376,14 +425,16 @@ class CoinankAPI:
             ('spot_data', lambda: self.fetch_spot_data(token)),
             ('oi_chart_data', lambda: self.fetch_open_interest_chart(token)),
             ('volume_chart_data', lambda: self.fetch_volume_chart(token)),
-            ('net_flow_data', lambda: self.fetch_long_short_flow(token))
+            ('net_flow_data', lambda: self.fetch_long_short_flow(token)),
+            ('funding_rate_chart', lambda: self.fetch_funding_rate_chart(token)),
+            ('funding_rate_history', lambda: self.fetch_funding_rate_history(token))
         ]
 
         results = {}
         success_count = 0
 
         # 并行执行所有请求
-        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             # 提交所有任务
             future_to_name = {
                 executor.submit(task_func): name
@@ -405,7 +456,7 @@ class CoinankAPI:
                     print(f"❌ {name} 获取异常: {e}")
                     results[name] = None
 
-        print(f"📈 数据获取结果: {success_count}/6 成功")
+        print(f"📈 数据获取结果: {success_count}/8 成功")
 
         if success_count == 0:
             print("❌ 未能获取到任何数据")
@@ -418,6 +469,8 @@ class CoinankAPI:
             'oi_chart_data': results.get('oi_chart_data'),
             'volume_chart_data': results.get('volume_chart_data'),
             'net_flow_data': results.get('net_flow_data'),
+            'funding_rate_chart': results.get('funding_rate_chart'),
+            'funding_rate_history': results.get('funding_rate_history'),
             'token': token,
             'fetch_time': datetime.now().isoformat()
         }
@@ -471,6 +524,8 @@ class CoinankAPI:
             'oi_chart_data': results.get('chart_data'),  # 复用价格图表数据
             'volume_chart_data': None,  # 稍后获取
             'net_flow_data': None,  # 稍后获取
+            'funding_rate_chart': None,  # 稍后获取（基础版本不包含）
+            'funding_rate_history': None,  # 稍后获取（基础版本不包含）
             'token': token,
             'fetch_time': datetime.now().isoformat(),
             'is_basic': True  # 标记为基础数据

@@ -9,7 +9,19 @@ ChartJS.register(ArcElement, Tooltip, Legend)
 
 function OIDistributionChart() {
   const data = useStore((state) => state.data)
-  
+
+  // 详细调试信息
+  console.log('=== OIDistributionChart 调试信息 ===')
+  console.log('data:', data)
+  console.log('data keys:', data ? Object.keys(data) : 'null')
+  console.log('oi_data:', data?.oi_data)
+  console.log('oi_data length:', data?.oi_data?.length)
+  console.log('oi_data type:', typeof data?.oi_data)
+  if (data?.oi_data && Array.isArray(data.oi_data)) {
+    console.log('oi_data sample:', data.oi_data[0])
+  }
+  console.log('=== OIDistributionChart 调试结束 ===')
+
   if (!data) return null
 
   const oiData = data.oi_data || []
