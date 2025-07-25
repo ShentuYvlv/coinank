@@ -69,27 +69,21 @@ def find_available_port(start_port=5000, max_attempts=10):
     return None
 
 def initialize_api_client():
-    """初始化API客户端"""
+    """初始化API客户端 - 使用urllib直连"""
     global api_client
     try:
         print("🔧 正在初始化API客户端...")
-        
-        # 创建API客户端，自动处理代理配置
-        api_client = CoinankAPI(use_proxy=True, proxy_host='127.0.0.1', proxy_port=10808)
-        
+
+        # 创建API客户端，使用urllib直连
+        api_client = CoinankAPI()
+
         # 测试连接
         if api_client.test_connection():
             print("✅ API客户端初始化成功")
             return True
         else:
-            print("⚠️ 网络连接测试失败，尝试直连模式...")
-            api_client = CoinankAPI(use_proxy=False)
-            if api_client.test_connection():
-                print("✅ 直连模式初始化成功")
-                return True
-            else:
-                print("❌ 所有连接方式都失败")
-                return False
+            print("❌ urllib直连失败")
+            return False
     except Exception as e:
         print(f"❌ 初始化API客户端失败: {e}")
         return False
@@ -393,10 +387,10 @@ def process_data_for_web(chart_data, ticker_data, spot_data, oi_chart_data, volu
                     futures_data.append({
                         'exchange': ticker.get('exchangeName', ''),
                         'price': ticker.get('lastPrice', 0),
-                        'oi_usd': ticker.get('oiUSD', 0),
+                        'open_interest': ticker.get('oiUSD', 0),  # 修改为open_interest
                         'funding_rate': funding_rate,
                         'volume_24h': ticker.get('turnover24h', 0),
-                        'price_change_24h': ticker.get('priceChange24h', 0)
+                        'change_24h': ticker.get('priceChange24h', 0)  # 修改为change_24h
                     })
 
             print(f"[调试] 过滤后期货数据数量: {len(futures_data)}")
@@ -416,7 +410,8 @@ def process_data_for_web(chart_data, ticker_data, spot_data, oi_chart_data, volu
                         'exchange': spot.get('exchangeName', ''),
                         'price': spot.get('lastPrice', 0),
                         'volume_24h': spot.get('turnover24h', 0),
-                        'price_change_24h': spot.get('priceChange24h', 0)
+                        'change_24h': spot.get('priceChange24h', 0),  # 修改为change_24h
+                        'depth': 0  # 添加depth字段
                     })
 
             print(f"[调试] 过滤后现货数据数量: {len(spot_data_list)}")
@@ -469,9 +464,9 @@ def process_data_for_web(chart_data, ticker_data, spot_data, oi_chart_data, volu
             futures_markets.append({
                 'exchange': item['exchange'],
                 'price': item['price'],
-                'change_24h': item.get('price_change_24h', 0),  # 使用priceChange24h数据
-                'open_interest': item.get('open_interest', item.get('oi_usd', 0)),  # 使用oi_usd作为备选
-                'volume_24h': item.get('volume_24h', 0)  # 如果没有成交额数据，默认为0
+                'change_24h': item.get('change_24h', 0),  # 修正字段名
+                'open_interest': item.get('open_interest', 0),  # 修正字段名
+                'volume_24h': item.get('volume_24h', 0)
             })
 
         # 将现货数据转换为前端期望的格式
@@ -480,10 +475,19 @@ def process_data_for_web(chart_data, ticker_data, spot_data, oi_chart_data, volu
             spot_markets.append({
                 'exchange': item['exchange'],
                 'price': item['price'],
-                'change_24h': item.get('price_change_24h', 0),  # 使用priceChange24h数据
+                'change_24h': item.get('change_24h', 0),  # 修正字段名
                 'volume_24h': item['volume_24h'],
-                'depth': item.get('depth', 0)  # 如果没有深度数据，默认为0
+                'depth': item.get('depth', 0)
             })
+
+        # 生成持仓量分布数据 (OI Distribution)
+        oi_data = []
+        for item in futures_data:
+            if item.get('open_interest', 0) > 0:
+                oi_data.append({
+                    'exchange': item['exchange'],
+                    'value': item['open_interest']
+                })
 
         return {
             'token': token,
@@ -556,13 +560,8 @@ def get_token_api(token):
     # 移除代币限制，允许用户输入任意代币
     token = token.upper()  # 转换为大写
 
-    print(f"\n=== API调试信息 ===")
-    print(f"📊 请求代币: {token}")
-    print(f"🔍 请求参数: {dict(request.args)}")
-
     # 检查是否请求基础数据
     basic_only = request.args.get('basic', 'false').lower() == 'true'
-    print(f"📋 基础数据模式: {basic_only}")
 
     try:
         if basic_only:
@@ -573,42 +572,22 @@ def get_token_api(token):
             data = get_token_data(token)
 
         if data:
-            # 详细调试返回的数据结构
-            print(f"✅ 数据获取成功，数据键: {list(data.keys())}")
-            print(f"📊 oi_data 长度: {len(data.get('oi_data', []))}")
-            print(f"📊 futures_markets 长度: {len(data.get('futures_markets', []))}")
-            print(f"📊 spot_markets 长度: {len(data.get('spot_markets', []))}")
-
-            # 打印样本数据
-            if data.get('oi_data'):
-                print(f"📊 oi_data 样本: {data['oi_data'][0]}")
-            if data.get('futures_markets'):
-                print(f"📊 futures_markets 样本: {data['futures_markets'][0]}")
-            if data.get('spot_markets'):
-                print(f"📊 spot_markets 样本: {data['spot_markets'][0]}")
-
             # 如果成功获取数据，将代币添加到支持列表中（如果不存在）
             if token not in supported_tokens:
                 supported_tokens.append(token)
                 print(f"✅ 新增支持代币: {token}")
 
-            print(f"=== API调试结束 ===\n")
             return jsonify({
                 'success': True,
                 'data': data
             })
         else:
-            print(f"❌ 数据为空")
-            print(f"=== API调试结束 ===\n")
             return jsonify({
                 'success': False,
                 'error': f'输入代币有误：无法获取 {token} 的数据，请检查代币符号是否正确'
             }), 400
     except Exception as e:
         print(f"❌ 获取代币 {token} 数据时发生异常: {e}")
-        import traceback
-        print(f"❌ 详细错误: {traceback.format_exc()}")
-        print(f"=== API调试结束 ===\n")
         return jsonify({
             'success': False,
             'error': f'输入代币有误：{token} 数据获取失败，请检查代币符号是否正确'
@@ -911,6 +890,110 @@ def get_fundingrate_data(token):
             'success': False,
             'error': 'API client not initialized'
         }), 500
+
+
+
+
+
+
+
+
+@app.route('/api/futures-data/<token>')
+def get_futures_market_data(token):
+    """获取期货市场数据 - 专门用于TablesSection组件"""
+    token = token.upper()
+
+    if api_client:
+        try:
+            futures_data = api_client.fetch_ticker_data(token)
+            if futures_data and futures_data.get('success'):
+                # 处理数据为TablesSection期望的格式
+                futures_markets = []
+                for item in futures_data.get('data', []):
+                    if item.get('exchangeName') and item.get('lastPrice', 0) > 0:
+                        futures_markets.append({
+                            'exchange': item.get('exchangeName', ''),
+                            'price': item.get('lastPrice', 0),
+                            'change_24h': item.get('priceChange24h', 0),
+                            'open_interest': item.get('oiUSD', 0),
+                            'volume_24h': item.get('turnover24h', 0),
+                            'funding_rate': item.get('fundingRate', 0)
+                        })
+
+                print(f"✅ 期货市场数据获取成功: {token} ({len(futures_markets)} 个交易所)")
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'futures_markets': futures_markets
+                    }
+                })
+            else:
+                print(f"❌ 期货市场数据获取失败: {token}")
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to fetch futures market data'
+                }), 500
+        except Exception as e:
+            print(f"❌ 期货市场数据获取异常: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+    else:
+        return jsonify({
+            'success': False,
+            'error': 'API client not initialized'
+        }), 500
+
+
+@app.route('/api/spot-data/<token>')
+def get_spot_market_data(token):
+    """获取现货市场数据 - 专门用于SpotMarketData组件"""
+    token = token.upper()
+
+    if api_client:
+        try:
+            spot_data = api_client.fetch_spot_data(token)
+            if spot_data and spot_data.get('success'):
+                # 处理数据为SpotMarketData期望的格式
+                spot_markets = []
+                for item in spot_data.get('data', []):
+                    if item.get('exchangeName') and item.get('lastPrice', 0) > 0:
+                        spot_markets.append({
+                            'exchange': item.get('exchangeName', ''),
+                            'price': item.get('lastPrice', 0),
+                            'change_24h': item.get('priceChange24h', 0),
+                            'volume_24h': item.get('turnover24h', 0),
+                            'depth': 0  # 现货数据中没有深度信息
+                        })
+
+                print(f"✅ 现货市场数据获取成功: {token} ({len(spot_markets)} 个交易所)")
+                return jsonify({
+                    'success': True,
+                    'data': {
+                        'spot_markets': spot_markets
+                    }
+                })
+            else:
+                print(f"❌ 现货市场数据获取失败: {token}")
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to fetch spot market data'
+                }), 500
+        except Exception as e:
+            print(f"❌ 现货市场数据获取异常: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+    else:
+        return jsonify({
+            'success': False,
+            'error': 'API client not initialized'
+        }), 500
+
+
+
 
 
 def start_background_tasks():

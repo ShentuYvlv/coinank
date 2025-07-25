@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box,
   Card,
@@ -14,26 +14,41 @@ import {
   Chip,
   IconButton,
   Tooltip,
+  CircularProgress,
 } from '@mui/material'
-import { OpenInNew } from '@mui/icons-material'
+
 import { useStore } from '../store/useStore'
+import axios from 'axios'
 
 const SpotMarketData = () => {
-  const { marketData, currentToken, formatPrice, formatCurrencyWithComma } = useStore()
+  const { currentToken, formatPrice, formatCurrencyWithComma } = useStore()
+  const [spotData, setSpotData] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
 
-  // 详细调试信息
-  console.log('=== SpotMarketData 调试信息 ===')
-  console.log('marketData:', marketData)
-  console.log('marketData keys:', marketData ? Object.keys(marketData) : 'null')
-  console.log('spot_markets:', marketData?.spot_markets)
-  console.log('spot_markets length:', marketData?.spot_markets?.length)
-  console.log('spot_markets type:', typeof marketData?.spot_markets)
-  if (marketData?.spot_markets && Array.isArray(marketData.spot_markets)) {
-    console.log('spot_markets sample:', marketData.spot_markets[0])
+  // 获取现货数据
+  const fetchSpotData = async () => {
+    try {
+      setIsLoading(true)
+      const response = await axios.get(`/api/spot-data/${currentToken}`)
+      if (response.data && response.data.success) {
+        setSpotData(response.data.data.spot_markets || [])
+        console.log('✅ 现货数据获取成功:', response.data.data.spot_markets?.length)
+      }
+    } catch (error) {
+      console.error('❌ 现货数据获取失败:', error)
+      setSpotData([])
+    } finally {
+      setIsLoading(false)
+    }
   }
-  console.log('currentToken:', currentToken)
-  console.log('=== SpotMarketData 调试结束 ===')
 
+  // 当代币切换时重新获取数据
+  useEffect(() => {
+    if (currentToken) {
+      fetchSpotData()
+    }
+  }, [currentToken])
+  
   const formatPercent = (num) => {
     if (num === null || num === undefined) return '-'
     const formatted = num.toFixed(2)
@@ -52,9 +67,15 @@ const SpotMarketData = () => {
       />
     )
   }
-  
-  const spotData = marketData?.spot_markets || []
-  
+
+  if (isLoading) {
+    return (
+      <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <CircularProgress />
+      </Box>
+    )
+  }
+
   return (
     <Box sx={{ height: '100%' }}>
       <Typography variant="h6" gutterBottom sx={{ px: 2, pt: 2, color: '#fff' }}>

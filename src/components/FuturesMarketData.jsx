@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box,
   Card,
@@ -14,12 +14,40 @@ import {
   Chip,
   IconButton,
   Tooltip,
+  CircularProgress,
 } from '@mui/material'
 import { OpenInNew } from '@mui/icons-material'
 import { useStore } from '../store/useStore'
+import axios from 'axios'
 
 const FuturesMarketData = () => {
-  const { marketData, currentToken, formatPrice, formatCurrencyWithComma } = useStore()
+  const { currentToken, formatPrice, formatCurrencyWithComma } = useStore()
+  const [futuresData, setFuturesData] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
+
+  // 获取期货数据
+  const fetchFuturesData = async () => {
+    try {
+      setIsLoading(true)
+      const response = await axios.get(`/api/futures-data/${currentToken}`)
+      if (response.data && response.data.success) {
+        setFuturesData(response.data.data.futures_markets || [])
+        console.log('✅ FuturesMarketData 期货数据获取成功:', response.data.data.futures_markets?.length)
+      }
+    } catch (error) {
+      console.error('❌ FuturesMarketData 期货数据获取失败:', error)
+      setFuturesData([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // 当代币切换时重新获取数据
+  useEffect(() => {
+    if (currentToken) {
+      fetchFuturesData()
+    }
+  }, [currentToken])
   
   const formatPercent = (num) => {
     if (num === null || num === undefined) return '-'
@@ -39,9 +67,15 @@ const FuturesMarketData = () => {
       />
     )
   }
-  
-  const futuresData = marketData?.futures_markets || []
-  
+
+  if (isLoading) {
+    return (
+      <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <CircularProgress />
+      </Box>
+    )
+  }
+
   return (
     <Box sx={{ height: '100%' }}>
       <Typography variant="h6" gutterBottom sx={{ px: 2, pt: 2, color: '#fff' }}>

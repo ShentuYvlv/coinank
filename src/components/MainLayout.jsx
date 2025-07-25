@@ -86,7 +86,7 @@ function MainLayout() {
         >
 
           {/* 中间嵌套三栏：左 Futures，中 ChartSection2，右 Spot */}
-          <Box sx={{ display: 'flex', width: '100%', gap: 1, px: 1 }}>
+          <Box sx={{ display: 'flex', width: '100%', gap: 1, px: 1,height:'60vh' }}>
             {/* FuturesMarketData */}
             <Box
               sx={{

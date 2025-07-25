@@ -229,17 +229,6 @@ const useStore = create(
           console.log(`✅ ${token} 数据加载成功`)
           const tokenData = response.data.data
 
-          // 详细调试API返回的数据
-          console.log('=== Store 数据调试 ===')
-          console.log('API返回数据键:', Object.keys(tokenData))
-          console.log('oi_data:', tokenData.oi_data)
-          console.log('oi_data 长度:', tokenData.oi_data?.length)
-          console.log('futures_markets:', tokenData.futures_markets)
-          console.log('futures_markets 长度:', tokenData.futures_markets?.length)
-          console.log('spot_markets:', tokenData.spot_markets)
-          console.log('spot_markets 长度:', tokenData.spot_markets?.length)
-          console.log('=== Store 数据调试结束 ===')
-
           // 缓存数据
           console.log(`💾 保存缓存数据到: ${CACHE_KEY_PREFIX}${cacheKey}`)
           cacheUtils.set(cacheKey, tokenData)
@@ -250,7 +239,7 @@ const useStore = create(
             lastUpdate: new Date(),
             isLoading: false
           })
-
+          
           return Promise.resolve(tokenData)
         } else {
           console.error(`❌ ${token} 数据加载失败:`, response.data?.error || '未知错误')

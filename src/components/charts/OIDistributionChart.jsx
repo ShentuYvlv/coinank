@@ -1,30 +1,69 @@
-import React from 'react'
-import { Card, CardHeader, CardContent, Typography } from '@mui/material'
+import React, { useState, useEffect } from 'react'
+import { Card, CardHeader, CardContent, Typography, CircularProgress } from '@mui/material'
 import { PieChart as PieIcon } from '@mui/icons-material'
 import { Doughnut } from 'react-chartjs-2'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { useStore } from '../../store/useStore'
+import axios from 'axios'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
 function OIDistributionChart() {
-  const data = useStore((state) => state.data)
+  const { currentToken } = useStore()
+  const [oiData, setOiData] = useState([])
+  const [isLoading, setIsLoading] = useState(false)
 
-  // 详细调试信息
-  console.log('=== OIDistributionChart 调试信息 ===')
-  console.log('data:', data)
-  console.log('data keys:', data ? Object.keys(data) : 'null')
-  console.log('oi_data:', data?.oi_data)
-  console.log('oi_data length:', data?.oi_data?.length)
-  console.log('oi_data type:', typeof data?.oi_data)
-  if (data?.oi_data && Array.isArray(data.oi_data)) {
-    console.log('oi_data sample:', data.oi_data[0])
+  // 获取持仓量分布数据 - 使用期货数据中的持仓量信息
+  const fetchOIData = async () => {
+    try {
+      setIsLoading(true)
+      // 使用期货数据API获取各交易所的持仓量
+      const response = await axios.get(`/api/futures-data/${currentToken}`)
+
+      if (response.data && response.data.success) {
+        const futuresMarkets = response.data.data.futures_markets || []
+
+        // 处理数据为持仓量分布格式
+        const processedOiData = []
+
+        futuresMarkets.forEach(market => {
+          if (market.exchange && market.open_interest && market.open_interest > 0) {
+            processedOiData.push({
+              exchange: market.exchange,
+              value: market.open_interest  // 使用持仓量数据，不是价格
+            })
+          }
+        })
+
+        // 按持仓量从大到小排序
+        processedOiData.sort((a, b) => b.value - a.value)
+
+        setOiData(processedOiData)
+        console.log('✅ 持仓量分布数据获取成功:', processedOiData.length, '个交易所')
+        console.log('持仓量数据示例:', processedOiData.slice(0, 3))
+      }
+    } catch (error) {
+      console.error('❌ 持仓量分布数据获取失败:', error)
+      setOiData([])
+    } finally {
+      setIsLoading(false)
+    }
   }
-  console.log('=== OIDistributionChart 调试结束 ===')
 
-  if (!data) return null
+  // 当代币切换时重新获取数据
+  useEffect(() => {
+    if (currentToken) {
+      fetchOIData()
+    }
+  }, [currentToken])
 
-  const oiData = data.oi_data || []
+  if (isLoading) {
+    return (
+      <Card sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <CircularProgress />
+      </Card>
+    )
+  }
   
   // Process OI data
   const exchangeOI = {}
@@ -111,7 +150,7 @@ function OIDistributionChart() {
           label: function(context) {
             const value = context.parsed
             const percentage = ((value / total) * 100).toFixed(1)
-            return `${context.label}: $${(value / 1e6).toFixed(1)}M`
+            return `${context.label}: $${(value / 1e6).toFixed(1)}M (${percentage}%)`
           }
         }
       }

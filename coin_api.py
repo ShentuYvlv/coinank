@@ -10,178 +10,65 @@ import time
 import base64
 import urllib.request
 import urllib.error
+import urllib.parse
+import gzip
+import io
 from datetime import datetime
 
 
 class CoinankAPI:
-    """Coinank API核心类"""
-    
-    def __init__(self, use_proxy=True, proxy_host='127.0.0.1', proxy_port=10808):
-        """
-        初始化API客户端
+    """Coinank API核心类 - 使用urllib直连"""
 
-        Args:
-            use_proxy: 是否使用代理
-            proxy_host: 代理主机地址
-            proxy_port: 代理端口
+    def __init__(self):
         """
-        self.session = requests.Session()
+        初始化API客户端 - 使用urllib直连
+        """
         self.base_url = "https://api.coinank.com"
         self.main_url = "https://coinank.com"
-        self.proxy_configured = False
 
         # 会话缓存
         self.session_established = False
         self.last_session_time = 0
         self.session_timeout = 300  # 5分钟会话超时
 
-        # 配置代理
-        if use_proxy:
-            self.proxy_configured = self.setup_proxy(proxy_host, proxy_port)
-        else:
-            print("🔧 代理已禁用，使用直连模式")
-            self.clear_all_proxy_settings()
+        # 配置urllib直连
+        self.setup_urllib_direct()
+        print("🔧 使用urllib直连模式")
     
-    def setup_proxy(self, host, port):
-        """配置SOCKS5代理"""
+    def setup_urllib_direct(self):
+        """配置urllib直连"""
         try:
-            import socks
-            import socket
-            
-            # 测试代理连接
-            try:
-                test_sock = socks.socksocket()
-                test_sock.set_proxy(socks.SOCKS5, host, port)
-                test_sock.settimeout(5)
-                test_sock.connect(('www.google.com', 80))
-                test_sock.close()
-                
-                # 设置全局代理
-                socks.set_default_proxy(socks.SOCKS5, host, port)
-                socket.socket = socks.socksocket
-                
-                print(f"✅ 已配置SOCKS5代理: {host}:{port}")
-                return True
-                
-            except Exception as proxy_error:
-                print(f"❌ SOCKS5代理连接失败: {proxy_error}")
-                return self.try_http_proxy(host, port)
-            
-        except ImportError:
-            print("⚠️ 未安装PySocks库，尝试HTTP代理...")
-            return self.try_http_proxy(host, port)
-            
+            # 创建无代理的opener
+            proxy_handler = urllib.request.ProxyHandler({})
+            self.opener = urllib.request.build_opener(proxy_handler)
+            print("✅ urllib直连配置完成")
         except Exception as e:
-            print(f"❌ 代理配置失败: {e}")
-            return False
-    
-    def try_http_proxy(self, host, port):
-        """尝试HTTP代理"""
-        try:
-            test_session = requests.Session()
-            test_session.proxies = {
-                'http': f'http://{host}:{port}',
-                'https': f'http://{host}:{port}'
-            }
-            
-            test_response = test_session.get('http://httpbin.org/ip', timeout=5)
-            if test_response.status_code == 200:
-                print(f"✅ 检测到HTTP代理可用: {host}:{port}")
-                self.session.proxies = {
-                    'http': f'http://{host}:{port}',
-                    'https': f'http://{host}:{port}'
-                }
-                return True
-            else:
-                print("❌ HTTP代理测试失败")
-                
-        except Exception as e:
-            print(f"❌ HTTP代理测试异常: {e}")
-        
-        print("⚠️ 代理配置失败，将使用直连模式")
-        return False
-    
-    def clear_all_proxy_settings(self):
-        """清理所有代理设置"""
-        try:
-            self.session.proxies.clear()
-            
-            import os
-            proxy_env_vars = ['HTTP_PROXY', 'HTTPS_PROXY', 'http_proxy', 'https_proxy']
-            for var in proxy_env_vars:
-                if var in os.environ:
-                    del os.environ[var]
-            
-            try:
-                import socket
-                import socks
-                socket.socket = socket._socket.socket
-                print("✅ 已清理所有代理设置")
-            except:
-                pass
-                
-        except Exception as e:
-            print(f"⚠️ 清理代理设置时出现异常: {e}")
-            self.session = requests.Session()
+            print(f"❌ urllib配置失败: {e}")
+            # 使用默认opener
+            self.opener = urllib.request.build_opener()
     
     def test_connection(self):
-        """测试网络连接"""
-        print("🔍 测试网络连接...")
-        
+        """测试网络连接 - 使用urllib"""
+        print("� 测试网络连接...")
+
         try:
-            response = self.session.get(self.main_url, timeout=10)
-            if response.status_code == 200:
-                print("✅ 网络连接正常")
-                return True
-            else:
-                print(f"❌ 连接失败，状态码: {response.status_code}")
-                return False
-        except Exception as e:
-            print(f"❌ 网络连接错误: {e}")
-            
-            if "ProxyError" in str(e) or "proxy" in str(e).lower():
-                print("🔄 检测到代理错误，尝试使用无代理连接...")
-                return self.test_direct_connection()
-            
-            return False
-    
-    def test_direct_connection(self):
-        """测试直连模式"""
-        try:
-            print("🔄 尝试使用urllib进行原始连接...")
-            
-            proxy_handler = urllib.request.ProxyHandler({})
-            opener = urllib.request.build_opener(proxy_handler)
-            
             req = urllib.request.Request(
                 self.main_url,
                 headers={
                     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                 }
             )
-            
-            with opener.open(req, timeout=10) as response:
+
+            with self.opener.open(req, timeout=10) as response:
                 if response.getcode() == 200:
-                    print("✅ urllib直连成功！创建新的requests会话...")
-                    
-                    direct_session = requests.Session()
-                    direct_session.proxies = {}
-                    direct_session.trust_env = False
-                    
-                    response = direct_session.get(self.main_url, timeout=10)
-                    if response.status_code == 200:
-                        print("✅ requests会话也成功，切换到无代理连接")
-                        self.session = direct_session
-                        return True
-                    else:
-                        print(f"❌ requests会话失败，状态码: {response.status_code}")
-                        return False
+                    print("✅ 网络连接正常")
+                    return True
                 else:
-                    print(f"❌ urllib连接失败，状态码: {response.getcode()}")
+                    print(f"❌ 连接失败，状态码: {response.getcode()}")
                     return False
-                    
+
         except Exception as e:
-            print(f"❌ 直连模式异常: {e}")
+            print(f"❌ 网络连接错误: {e}")
             return False
     
     def establish_session(self):
@@ -211,22 +98,22 @@ class CoinankAPI:
         }
 
         try:
-            resp = self.session.get(self.main_url, headers=main_headers, timeout=10)
+            req = urllib.request.Request(self.main_url, headers=main_headers)
 
-            if resp.status_code == 200:
-                cookies_count = len(self.session.cookies)
-                print(f"✅ 主站响应: {resp.status_code}")
-                print(f"✅ 获取到 {cookies_count} 个Cookie")
+            with self.opener.open(req, timeout=10) as response:
+                if response.getcode() == 200:
+                    print(f"✅ 主站响应: {response.getcode()}")
+                    print("✅ urllib直连成功")
 
-                # 更新会话状态
-                self.session_established = True
-                self.last_session_time = current_time
+                    # 更新会话状态
+                    self.session_established = True
+                    self.last_session_time = current_time
 
-                return True
-            else:
-                print(f"❌ 主站访问失败: {resp.status_code}")
-                self.session_established = False
-                return False
+                    return True
+                else:
+                    print(f"❌ 主站访问失败: {response.getcode()}")
+                    self.session_established = False
+                    return False
 
         except Exception as e:
             print(f"❌ 建立会话失败: {e}")
@@ -259,49 +146,63 @@ class CoinankAPI:
         }
     
     def fetch_data_with_retry(self, url, params, data_type, max_retries=2, allow_empty_response=False):
-        """带重试的数据获取 - 优化版本"""
+        """带重试的数据获取 - 使用urllib直连"""
         for attempt in range(max_retries):
             try:
                 headers = self.get_api_headers()
-                response = self.session.get(url, headers=headers, params=params, timeout=10)
 
-                print(f"🔍 {data_type}请求: {url}")
-                print(f"📊 参数: {params}")
-                print(f"📊 响应状态: {response.status_code}")
+                # 构建完整URL
+                query_string = urllib.parse.urlencode(params)
+                full_url = f"{url}?{query_string}"
 
-                if response.status_code == 200:
-                    # 检查响应内容类型
-                    content_type = response.headers.get('content-type', '').lower()
-                    if 'application/json' not in content_type:
-                        print(f"⚠️ {data_type}响应不是JSON格式: {content_type}")
-                        print(f"响应内容前500字符: {response.text[:500]}")
-                        continue
+                print(f"🔍 {data_type}请求: {full_url}")
 
-                    try:
-                        data = response.json()
-                        if data.get('success'):
-                            data_count = len(data.get('data', []) if isinstance(data.get('data'), list)
-                                           else data.get('data', {}).get('tss', []))
-                            print(f"✅ {data_type}数据获取成功 ({data_count} 项)")
-                            return data
-                        else:
-                            error_msg = data.get('msg', '未知错误')
-                            print(f"❌ {data_type}数据API错误: {error_msg}")
-                            
-                            # 对于某些特定错误，可以返回空响应而不是失败
-                            if allow_empty_response and ('invalid params' in error_msg.lower() or 'not found' in error_msg.lower()):
-                                print(f"⚠️ {data_type}数据不可用，返回空响应")
-                                return {
-                                    'success': True,
-                                    'data': {},
-                                    'msg': f'{data_type}数据暂不可用'
-                                }
-                    except ValueError as json_error:
-                        print(f"❌ {data_type}JSON解析错误: {json_error}")
-                        print(f"响应内容: {response.text[:200]}")
-                else:
-                    print(f"❌ {data_type}数据HTTP错误: {response.status_code}")
-                    print(f"响应内容: {response.text[:200]}")
+                req = urllib.request.Request(full_url, headers=headers)
+
+                with self.opener.open(req, timeout=10) as response:
+                    print(f"📊 响应状态: {response.getcode()}")
+
+                    if response.getcode() == 200:
+                        # 检查响应内容类型
+                        content_type = response.headers.get('content-type', '').lower()
+                        if 'application/json' not in content_type:
+                            print(f"⚠️ {data_type}响应不是JSON格式: {content_type}")
+                            continue
+
+                        try:
+                            # 读取响应数据
+                            response_data = response.read()
+
+                            # 检查是否是gzip压缩
+                            if response_data[:2] == b'\x1f\x8b':
+                                # 解压gzip数据
+                                response_data = gzip.decompress(response_data)
+
+                            # 解码为字符串
+                            response_text = response_data.decode('utf-8')
+                            data = json.loads(response_text)
+
+                            if data.get('success'):
+                                data_count = len(data.get('data', []) if isinstance(data.get('data'), list)
+                                               else data.get('data', {}).get('tss', []))
+                                print(f"✅ {data_type}数据获取成功 ({data_count} 项)")
+                                return data
+                            else:
+                                error_msg = data.get('msg', '未知错误')
+                                print(f"❌ {data_type}数据API错误: {error_msg}")
+
+                                # 对于某些特定错误，可以返回空响应而不是失败
+                                if allow_empty_response and ('invalid params' in error_msg.lower() or 'not found' in error_msg.lower()):
+                                    print(f"⚠️ {data_type}数据不可用，返回空响应")
+                                    return {
+                                        'success': True,
+                                        'data': {},
+                                        'msg': f'{data_type}数据暂不可用'
+                                    }
+                        except (ValueError, json.JSONDecodeError) as json_error:
+                            print(f"❌ {data_type}JSON解析错误: {json_error}")
+                    else:
+                        print(f"❌ {data_type}数据HTTP错误: {response.getcode()}")
 
             except Exception as e:
                 print(f"❌ {data_type}数据请求异常 (尝试{attempt+1}): {e}")
@@ -335,16 +236,116 @@ class CoinankAPI:
         return self.fetch_data_with_retry(url, params, "图表")
     
     def fetch_ticker_data(self, base_coin="PEPE"):
-        """获取期货数据"""
+        """获取期货数据 - 使用urllib直连"""
         url = f"{self.base_url}/api/tickers"
         params = {'baseCoin': base_coin}
-        return self.fetch_data_with_retry(url, params, "期货")
-    
+
+        # 构建完整URL
+        query_string = urllib.parse.urlencode(params)
+        full_url = f"{url}?{query_string}"
+
+        print(f"🔍 获取期货数据: {full_url}")
+
+        try:
+            headers = self.get_api_headers()
+            req = urllib.request.Request(full_url, headers=headers)
+
+            with self.opener.open(req, timeout=10) as response:
+                print(f"📊 响应状态: {response.getcode()}")
+
+                if response.getcode() == 200:
+                    # 检查响应内容类型
+                    content_type = response.headers.get('content-type', '').lower()
+                    if 'application/json' not in content_type:
+                        print(f"⚠️ 期货数据响应不是JSON格式: {content_type}")
+                        return None
+
+                    try:
+                        # 读取响应数据
+                        response_data = response.read()
+
+                        # 检查是否是gzip压缩
+                        if response_data[:2] == b'\x1f\x8b':
+                            # 解压gzip数据
+                            response_data = gzip.decompress(response_data)
+
+                        # 解码为字符串
+                        response_text = response_data.decode('utf-8')
+                        data = json.loads(response_text)
+                        if data.get('success'):
+                            data_count = len(data.get('data', []))
+                            print(f"✅ 期货数据获取成功 ({data_count} 项)")
+                            return data
+                        else:
+                            error_msg = data.get('msg', '未知错误')
+                            print(f"❌ 期货数据API错误: {error_msg}")
+                            return None
+                    except (ValueError, json.JSONDecodeError) as json_error:
+                        print(f"❌ 期货数据JSON解析错误: {json_error}")
+                        return None
+                else:
+                    print(f"❌ 期货数据HTTP错误: {response.getcode()}")
+                    return None
+
+        except Exception as e:
+            print(f"❌ 期货数据请求异常: {e}")
+            return None
+
     def fetch_spot_data(self, base_coin="PEPE"):
-        """获取现货数据"""
+        """获取现货数据 - 使用urllib直连"""
         url = f"{self.base_url}/api/tickers/getSpotTickers"
         params = {'baseCoin': base_coin}
-        return self.fetch_data_with_retry(url, params, "现货")
+
+        # 构建完整URL
+        query_string = urllib.parse.urlencode(params)
+        full_url = f"{url}?{query_string}"
+
+        print(f"🔍 获取现货数据: {full_url}")
+
+        try:
+            headers = self.get_api_headers()
+            req = urllib.request.Request(full_url, headers=headers)
+
+            with self.opener.open(req, timeout=10) as response:
+                print(f"📊 响应状态: {response.getcode()}")
+
+                if response.getcode() == 200:
+                    # 检查响应内容类型
+                    content_type = response.headers.get('content-type', '').lower()
+                    if 'application/json' not in content_type:
+                        print(f"⚠️ 现货数据响应不是JSON格式: {content_type}")
+                        return None
+
+                    try:
+                        # 读取响应数据
+                        response_data = response.read()
+
+                        # 检查是否是gzip压缩
+                        if response_data[:2] == b'\x1f\x8b':
+                            # 解压gzip数据
+                            response_data = gzip.decompress(response_data)
+
+                        # 解码为字符串
+                        response_text = response_data.decode('utf-8')
+                        data = json.loads(response_text)
+                        if data.get('success'):
+                            data_count = len(data.get('data', []))
+                            print(f"✅ 现货数据获取成功 ({data_count} 项)")
+                            return data
+                        else:
+                            error_msg = data.get('msg', '未知错误')
+                            print(f"❌ 现货数据API错误: {error_msg}")
+                            return None
+                    except (ValueError, json.JSONDecodeError) as json_error:
+                        print(f"❌ 现货数据JSON解析错误: {json_error}")
+                        return None
+                else:
+                    print(f"❌ 现货数据HTTP错误: {response.getcode()}")
+                    return None
+
+        except Exception as e:
+            print(f"❌ 现货数据请求异常: {e}")
+            return None
     
     def fetch_volume_chart(self, base_coin="PEPE", exchange_name="ALL", interval="1d"):
         """获取24H成交额图表数据"""
@@ -532,34 +533,22 @@ class CoinankAPI:
         }
 
 
-def create_api_client(use_proxy=True, proxy_host='127.0.0.1', proxy_port=10808):
-    """创建API客户端实例"""
-    return CoinankAPI(use_proxy, proxy_host, proxy_port)
+def create_api_client():
+    """创建API客户端实例 - 使用urllib直连"""
+    return CoinankAPI()
 
 
 def quick_test():
-    """快速测试API连接"""
+    """快速测试API连接 - 使用urllib直连"""
     print("🧪 快速测试API连接...")
-    
-    # 尝试不同的代理配置
-    configs = [
-        (True, '127.0.0.1', 10808),  # SOCKS5代理
-        (True, '127.0.0.1', 7890),   # 常用代理端口
-        (False, None, None)          # 直连模式
-    ]
-    
-    for use_proxy, host, port in configs:
-        print(f"\n🔍 测试配置: 代理={use_proxy}, 主机={host}, 端口={port}")
-        
-        api = create_api_client(use_proxy, host, port)
-        if api.test_connection():
-            print("✅ 连接成功，可以使用此配置")
-            return api
-        else:
-            print("❌ 连接失败，尝试下一个配置")
-    
-    print("❌ 所有配置都失败了")
-    return None
+
+    api = create_api_client()
+    if api.test_connection():
+        print("✅ urllib直连成功")
+        return api
+    else:
+        print("❌ urllib直连失败")
+        return None
 
 
 if __name__ == "__main__":
