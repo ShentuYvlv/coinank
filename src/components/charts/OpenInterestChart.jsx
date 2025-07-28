@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { 
   Box, 
   Card, 
@@ -27,6 +27,8 @@ import { Line } from 'react-chartjs-2'
 import { useStore } from '../../store/useStore'
 import axios from 'axios'
 import { oichartCache } from '../../utils/chartCache'
+import { queuedRequest } from '../../utils/requestQueue'
+import { useSharedData } from '../../hooks/useSharedData'
 
 ChartJS.register(
   CategoryScale,
@@ -41,7 +43,9 @@ ChartJS.register(
 const OpenInterestChart = () => {
   const theme = useTheme()
   const { currentToken } = useStore()
-  
+  const { setOpenInterestData } = useSharedData()
+  const abortControllerRef = useRef(null)
+
   // 状态管理
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -71,6 +75,16 @@ const OpenInterestChart = () => {
   
   // 获取合约持仓量数据
   const fetchOpenInterestData = async () => {
+    if (!currentToken) return
+
+    // 取消之前的请求
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
+    // 创建新的AbortController
+    abortControllerRef.current = new AbortController()
+
     // 构建缓存键
     const cacheKey = `${currentToken}_${interval}_${dataType}`
     console.log('🔍 检查OpenInterestChart缓存键:', cacheKey)
@@ -82,6 +96,8 @@ const OpenInterestChart = () => {
       setData(cachedData)
       setLoading(false)
       setError(null)
+      // 即使使用缓存，也要更新全局共享数据
+      setOpenInterestData(cachedData)
       return
     }
 
@@ -90,23 +106,62 @@ const OpenInterestChart = () => {
 
     try {
       console.log('🌐 发送OpenInterestChart请求:', `/api/openinterest/${currentToken}`)
-      const response = await axios.get(`/api/openinterest/${currentToken}`, {
-        params: {
-          interval,
-          type: dataType
-        }
-      })
+
+      // 使用请求队列，中等优先级
+      const response = await queuedRequest(
+        () => axios.get(`/api/openinterest/${currentToken}`, {
+          params: {
+            interval,
+            type: dataType
+          },
+          signal: abortControllerRef.current.signal
+        }),
+        6 // 中等优先级
+      )
+
+      // 检查请求是否被取消
+      if (abortControllerRef.current.signal.aborted) {
+        return
+      }
 
       if (response.data && response.data.success) {
         // 缓存数据
         oichartCache.set(cacheKey, response.data.data)
         setData(response.data.data)
+
+        // 更新全局共享数据
+        setOpenInterestData(response.data.data)
       } else {
         throw new Error(response.data?.error || '数据获取失败')
       }
     } catch (err) {
+      // 忽略取消的请求
+      if (err.name === 'AbortError') {
+        console.log('OpenInterest请求被取消:', err.message)
+        return
+      }
+
       console.error('Failed to fetch open interest data:', err)
-      setError('加载数据失败')
+      if (err.response) {
+        // 服务器返回了错误响应
+        let errorMessage = `HTTP ${err.response.status}`
+        if (err.response.data) {
+          if (typeof err.response.data === 'string') {
+            errorMessage += `: ${err.response.data}`
+          } else if (typeof err.response.data === 'object') {
+            errorMessage += `:\n${JSON.stringify(err.response.data, null, 2)}`
+          }
+        } else {
+          errorMessage += `: ${err.response.statusText}`
+        }
+        setError(errorMessage)
+      } else if (err.request) {
+        // 请求发出但没有收到响应
+        setError('网络错误: 无法连接到服务器')
+      } else {
+        // 其他错误
+        setError(`请求错误: ${err.message}`)
+      }
     } finally {
       setLoading(false)
     }
@@ -116,6 +171,15 @@ const OpenInterestChart = () => {
   useEffect(() => {
     fetchOpenInterestData()
   }, [interval, dataType, currentToken])
+
+  // 组件卸载时清理
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
+  }, [])
   
   // 处理图表数据
   const chartData = React.useMemo(() => {

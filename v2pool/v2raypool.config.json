@@ -1,0 +1,1050 @@
+{
+	"log": {
+		"loglevel": "debug"
+	},
+	"api": {
+		"tag": "TAG_OUTBOUND_API",
+		"services": [
+			"HandlerService"
+		]
+	},
+	"routing": {
+		"domainStrategy": "IPOnDemand",
+		"domainMatcher": "mph",
+		"rules": [
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_INBOUND_API"
+				],
+				"outboundTag": "TAG_OUTBOUND_API"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_0"
+				],
+				"outboundTag": "TAG_PROXY_0"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_1"
+				],
+				"outboundTag": "TAG_PROXY_1"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_2"
+				],
+				"outboundTag": "TAG_PROXY_2"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_3"
+				],
+				"outboundTag": "TAG_PROXY_3"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_4"
+				],
+				"outboundTag": "TAG_PROXY_4"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_5"
+				],
+				"outboundTag": "TAG_PROXY_5"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_6"
+				],
+				"outboundTag": "TAG_PROXY_6"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_7"
+				],
+				"outboundTag": "TAG_PROXY_7"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_8"
+				],
+				"outboundTag": "TAG_PROXY_8"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_9"
+				],
+				"outboundTag": "TAG_PROXY_9"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_10"
+				],
+				"outboundTag": "TAG_PROXY_10"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_11"
+				],
+				"outboundTag": "TAG_PROXY_11"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_12"
+				],
+				"outboundTag": "TAG_PROXY_12"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_13"
+				],
+				"outboundTag": "TAG_PROXY_13"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_14"
+				],
+				"outboundTag": "TAG_PROXY_14"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_15"
+				],
+				"outboundTag": "TAG_PROXY_15"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_16"
+				],
+				"outboundTag": "TAG_PROXY_16"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_17"
+				],
+				"outboundTag": "TAG_PROXY_17"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_18"
+				],
+				"outboundTag": "TAG_PROXY_18"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_19"
+				],
+				"outboundTag": "TAG_PROXY_19"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_20"
+				],
+				"outboundTag": "TAG_PROXY_20"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_21"
+				],
+				"outboundTag": "TAG_PROXY_21"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_22"
+				],
+				"outboundTag": "TAG_PROXY_22"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_23"
+				],
+				"outboundTag": "TAG_PROXY_23"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_24"
+				],
+				"outboundTag": "TAG_PROXY_24"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_25"
+				],
+				"outboundTag": "TAG_PROXY_25"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_26"
+				],
+				"outboundTag": "TAG_PROXY_26"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_27"
+				],
+				"outboundTag": "TAG_PROXY_27"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_28"
+				],
+				"outboundTag": "TAG_PROXY_28"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_29"
+				],
+				"outboundTag": "TAG_PROXY_29"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_30"
+				],
+				"outboundTag": "TAG_PROXY_30"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_31"
+				],
+				"outboundTag": "TAG_PROXY_31"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_32"
+				],
+				"outboundTag": "TAG_PROXY_32"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_33"
+				],
+				"outboundTag": "TAG_PROXY_33"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_34"
+				],
+				"outboundTag": "TAG_PROXY_34"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_35"
+				],
+				"outboundTag": "TAG_PROXY_35"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_36"
+				],
+				"outboundTag": "TAG_PROXY_36"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_37"
+				],
+				"outboundTag": "TAG_PROXY_37"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_38"
+				],
+				"outboundTag": "TAG_PROXY_38"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_39"
+				],
+				"outboundTag": "TAG_PROXY_39"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_40"
+				],
+				"outboundTag": "TAG_PROXY_40"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_41"
+				],
+				"outboundTag": "TAG_PROXY_41"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_42"
+				],
+				"outboundTag": "TAG_PROXY_42"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_43"
+				],
+				"outboundTag": "TAG_PROXY_43"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_44"
+				],
+				"outboundTag": "TAG_PROXY_44"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_45"
+				],
+				"outboundTag": "TAG_PROXY_45"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_46"
+				],
+				"outboundTag": "TAG_PROXY_46"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_47"
+				],
+				"outboundTag": "TAG_PROXY_47"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_48"
+				],
+				"outboundTag": "TAG_PROXY_48"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_49"
+				],
+				"outboundTag": "TAG_PROXY_49"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_50"
+				],
+				"outboundTag": "TAG_PROXY_50"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_51"
+				],
+				"outboundTag": "TAG_PROXY_51"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_52"
+				],
+				"outboundTag": "TAG_PROXY_52"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_53"
+				],
+				"outboundTag": "TAG_PROXY_53"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_54"
+				],
+				"outboundTag": "TAG_PROXY_54"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_55"
+				],
+				"outboundTag": "TAG_PROXY_55"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_56"
+				],
+				"outboundTag": "TAG_PROXY_56"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_57"
+				],
+				"outboundTag": "TAG_PROXY_57"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_58"
+				],
+				"outboundTag": "TAG_PROXY_58"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_59"
+				],
+				"outboundTag": "TAG_PROXY_59"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_60"
+				],
+				"outboundTag": "TAG_PROXY_60"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_61"
+				],
+				"outboundTag": "TAG_PROXY_61"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_62"
+				],
+				"outboundTag": "TAG_PROXY_62"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_63"
+				],
+				"outboundTag": "TAG_PROXY_63"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_64"
+				],
+				"outboundTag": "TAG_PROXY_64"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_65"
+				],
+				"outboundTag": "TAG_PROXY_65"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_66"
+				],
+				"outboundTag": "TAG_PROXY_66"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_67"
+				],
+				"outboundTag": "TAG_PROXY_67"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_68"
+				],
+				"outboundTag": "TAG_PROXY_68"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_69"
+				],
+				"outboundTag": "TAG_PROXY_69"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_70"
+				],
+				"outboundTag": "TAG_PROXY_70"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_71"
+				],
+				"outboundTag": "TAG_PROXY_71"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_72"
+				],
+				"outboundTag": "TAG_PROXY_72"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_73"
+				],
+				"outboundTag": "TAG_PROXY_73"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_74"
+				],
+				"outboundTag": "TAG_PROXY_74"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_75"
+				],
+				"outboundTag": "TAG_PROXY_75"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_76"
+				],
+				"outboundTag": "TAG_PROXY_76"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_77"
+				],
+				"outboundTag": "TAG_PROXY_77"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_78"
+				],
+				"outboundTag": "TAG_PROXY_78"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_79"
+				],
+				"outboundTag": "TAG_PROXY_79"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_80"
+				],
+				"outboundTag": "TAG_PROXY_80"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_81"
+				],
+				"outboundTag": "TAG_PROXY_81"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_82"
+				],
+				"outboundTag": "TAG_PROXY_82"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_83"
+				],
+				"outboundTag": "TAG_PROXY_83"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_84"
+				],
+				"outboundTag": "TAG_PROXY_84"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_85"
+				],
+				"outboundTag": "TAG_PROXY_85"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_86"
+				],
+				"outboundTag": "TAG_PROXY_86"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_87"
+				],
+				"outboundTag": "TAG_PROXY_87"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_88"
+				],
+				"outboundTag": "TAG_PROXY_88"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_89"
+				],
+				"outboundTag": "TAG_PROXY_89"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_90"
+				],
+				"outboundTag": "TAG_PROXY_90"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_91"
+				],
+				"outboundTag": "TAG_PROXY_91"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_92"
+				],
+				"outboundTag": "TAG_PROXY_92"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_93"
+				],
+				"outboundTag": "TAG_PROXY_93"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_94"
+				],
+				"outboundTag": "TAG_PROXY_94"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_95"
+				],
+				"outboundTag": "TAG_PROXY_95"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_96"
+				],
+				"outboundTag": "TAG_PROXY_96"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_97"
+				],
+				"outboundTag": "TAG_PROXY_97"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_98"
+				],
+				"outboundTag": "TAG_PROXY_98"
+			},
+			{
+				"domainMatcher": "",
+				"type": "field",
+				"domains": null,
+				"ip": null,
+				"inboundTag": [
+					"TAG_PROXY_99"
+				],
+				"outboundTag": "TAG_PROXY_99"
+			}
+		],
+		"balancers": []
+	},
+	"inbounds": [
+		{
+			"Protocol": "dokodemo-door",
+			"Port": 15492,
+			"Listen": "0.0.0.0",
+			"Tag": "TAG_INBOUND_API",
+			"settings": {
+				"address": "127.0.0.1"
+			}
+		}
+	],
+	"outbounds": [
+		{
+			"protocol": "freedom",
+			"sendThrough": "0.0.0.0",
+			"tag": "DIRECT",
+			"settings": {},
+			"streamSettings": {},
+			"proxySettings": null,
+			"mux": null
+		}
+	]
+}

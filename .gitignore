@@ -99,7 +99,6 @@ public/
 coverage/
 *.lcov
 *.lcov.*
-
 # Custom or project-specific ignored files
 # Uncomment or add any additional rules based on your specific project.
 # /config/local.yml

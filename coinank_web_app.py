@@ -74,12 +74,21 @@ def initialize_api_client():
     try:
         print("🔧 正在初始化API客户端...")
 
-        # 创建API客户端，使用urllib直连
-        api_client = CoinankAPI()
+        # 创建API客户端，优先使用代理
+        api_client = CoinankAPI(use_proxy=True)
 
         # 测试连接
         if api_client.test_connection():
-            print("✅ API客户端初始化成功")
+            connection_type = "代理" if api_client.use_proxy else "直连"
+            print(f"✅ API客户端初始化成功 ({connection_type})")
+
+            # 输出详细连接状态
+            if hasattr(api_client, 'get_connection_status'):
+                status = api_client.get_connection_status()
+                print(f"📡 连接状态: {status['status']}")
+                if status['use_proxy'] and status['proxy_config']:
+                    print(f"🔗 代理配置: {status['proxy_config']['http']}")
+
             return True
         else:
             print("❌ urllib直连失败")
@@ -789,6 +798,52 @@ def get_openinterest_data(token):
             'error': 'API client not initialized'
         }), 500
 
+@app.route('/api/coindetail/<token>')
+def get_coin_detail(token):
+    """获取代币详细信息"""
+    token = token.upper()
+
+    # 构建缓存键
+    cache_key = f"{token}_coindetail"
+    current_time = time.time()
+
+    # 检查缓存（代币详情缓存时间较长，1小时）
+    DETAIL_CACHE_DURATION = 3600  # 1小时
+    if (cache_key in data_cache and
+        cache_key in last_update_time and
+        current_time - last_update_time[cache_key] < DETAIL_CACHE_DURATION):
+        print(f"📊 返回缓存的代币详情: {token}")
+        return jsonify(data_cache[cache_key])
+
+    # 获取新数据
+    if api_client:
+        try:
+            detail_data = api_client.fetch_coin_detail(token)
+            if detail_data and detail_data.get('success'):
+                # 缓存数据
+                data_cache[cache_key] = detail_data
+                last_update_time[cache_key] = current_time
+                print(f"✅ 代币详情获取成功: {token}")
+                return jsonify(detail_data)
+            else:
+                print(f"❌ 代币详情获取失败: {token}")
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to fetch coin detail'
+                }), 500
+        except Exception as e:
+            print(f"❌ 代币详情获取异常: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+    else:
+        return jsonify({
+            'success': False,
+            'error': 'API client not initialized'
+        }), 500
+
+
 @app.route('/api/fundingrate/<token>')
 def get_fundingrate_data(token):
     """获取资金费率数据"""
@@ -1099,4 +1154,62 @@ if __name__ == '__main__':
         print("1. 检查端口是否被占用")
         print("2. 检查防火墙设置")
         print("3. 尝试以管理员权限运行")
+
+# 临时处理connection-status请求，用于调试
+@app.route('/api/connection-status')
+def connection_status_deprecated():
+    """临时处理 - 查看谁在调用这个API"""
+    import traceback
+    import inspect
+
+    # 获取请求信息
+    request_info = {
+        'method': request.method,
+        'headers': dict(request.headers),
+        'user_agent': request.headers.get('User-Agent', ''),
+        'referer': request.headers.get('Referer', ''),
+        'origin': request.headers.get('Origin', ''),
+        'remote_addr': request.remote_addr
+    }
+
+    print(f"⚠️ 检测到对已删除API的调用: /api/connection-status")
+    print(f"📋 请求信息: {request_info}")
+
+    return jsonify({
+        'success': False,
+        'error': 'API已删除',
+        'message': '连接状态API已被删除以提高性能',
+        'request_info': request_info
+    }), 410  # 410 Gone - 资源已永久删除
+
+@app.route('/api/test')
+def test_api():
+    """测试API连接"""
+    if api_client:
+        try:
+            # 测试基础连接
+            if api_client.test_connection():
+                return jsonify({
+                    'success': True,
+                    'message': 'API连接正常',
+                    'timestamp': time.time(),
+                    'connection_status': api_client.get_connection_status()
+                })
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': 'API连接失败',
+                    'connection_status': api_client.get_connection_status()
+                }), 500
+        except Exception as e:
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'connection_status': api_client.get_connection_status() if hasattr(api_client, 'get_connection_status') else None
+            }), 500
+    else:
+        return jsonify({
+            'success': False,
+            'error': 'API client not initialized'
+        }), 500
         sys.exit(1)

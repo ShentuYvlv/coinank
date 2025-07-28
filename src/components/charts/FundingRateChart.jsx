@@ -20,6 +20,8 @@ import { Refresh as RefreshIcon } from '@mui/icons-material'
 import * as echarts from 'echarts'
 import axios from 'axios'
 import { useStore } from '../../store/useStore'
+import { queuedRequest } from '../../utils/requestQueue'
+import { useSharedData } from '../../hooks/useSharedData'
 
 // 交易所颜色配置
 const EXCHANGE_COLORS = {
@@ -44,9 +46,10 @@ const INTERVAL_OPTIONS = [
 
 function FundingRateChart() {
   const { currentToken } = useStore()
+  const { setFundingRateData } = useSharedData()
   const chartRef = useRef(null)
   const chartInstance = useRef(null)
-  
+
   // 状态管理
   const [interval, setInterval] = useState('5m')
   const [timeRangeStart, setTimeRangeStart] = useState(50)
@@ -87,9 +90,11 @@ function FundingRateChart() {
 
       console.log('🌐 发送FundingRate请求:', requestUrl, requestParams)
 
-      const response = await axios.get(requestUrl, {
-        params: requestParams
-      })
+      // 使用请求队列，中等优先级
+      const response = await queuedRequest(
+        () => axios.get(requestUrl, { params: requestParams }),
+        4 // 中等偏低优先级
+      )
 
       const data = response.data
 
@@ -132,6 +137,9 @@ function FundingRateChart() {
 
         // 设置资金费率数据
         setFundingData(fundingData || [])
+
+        // 更新全局共享数据
+        setFundingRateData(fundingData || [])
 
         console.log('✅ 资金费率数据获取成功')
       } else {
@@ -277,15 +285,29 @@ function FundingRateChart() {
           type: 'value',
           name: '资金费率',
           position: 'left',
+          scale: true, // 启用自动缩放
+          min: function(value) {
+            // 动态计算最小值，确保有合理的边距
+            const range = value.max - value.min
+            const margin = Math.max(range * 0.1, Math.abs(value.min) * 0.05)
+            return value.min - margin
+          },
+          max: function(value) {
+            // 动态计算最大值，确保有合理的边距
+            const range = value.max - value.min
+            const margin = Math.max(range * 0.1, Math.abs(value.max) * 0.05)
+            return value.max + margin
+          },
+          boundaryGap: [0, 0], // 移除边界间隙
           axisLine: { lineStyle: { color: '#333' } },
           axisTick: { lineStyle: { color: '#333' } },
-          axisLabel: { 
+          axisLabel: {
             color: '#999',
             formatter: function(value) {
               return `${(value * 100).toFixed(3)}%`
             }
           },
-          splitLine: { 
+          splitLine: {
             lineStyle: { color: '#333', type: 'dashed' }
           }
         },
@@ -293,9 +315,23 @@ function FundingRateChart() {
           type: 'value',
           name: '价格 (USD)',
           position: 'right',
+          scale: true, // 启用自动缩放
+          min: function(value) {
+            // 价格轴动态计算最小值，确保有合理的边距
+            const range = value.max - value.min
+            const margin = Math.max(range * 0.05, value.min * 0.02)
+            return Math.max(0, value.min - margin) // 价格不能为负
+          },
+          max: function(value) {
+            // 价格轴动态计算最大值，确保有合理的边距
+            const range = value.max - value.min
+            const margin = Math.max(range * 0.05, value.max * 0.02)
+            return value.max + margin
+          },
+          boundaryGap: [0, 0], // 移除边界间隙
           axisLine: { lineStyle: { color: '#333' } },
           axisTick: { lineStyle: { color: '#333' } },
-          axisLabel: { 
+          axisLabel: {
             color: '#999',
             formatter: function(value) {
               return `$${value.toFixed(4)}`

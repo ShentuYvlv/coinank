@@ -19,23 +19,54 @@ import {
 import { OpenInNew } from '@mui/icons-material'
 import { useStore } from '../store/useStore'
 import axios from 'axios'
+import { queuedRequest } from '../utils/requestQueue'
 
 const FuturesMarketData = () => {
   const { currentToken, formatPrice, formatCurrencyWithComma } = useStore()
   const [futuresData, setFuturesData] = useState([])
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
 
   // 获取期货数据
   const fetchFuturesData = async () => {
     try {
       setIsLoading(true)
-      const response = await axios.get(`/api/futures-data/${currentToken}`)
+      setError(null)
+
+      // 使用请求队列，高优先级（期货数据比较重要）
+      const response = await queuedRequest(
+        () => axios.get(`/api/futures-data/${currentToken}`),
+        10 // 高优先级
+      )
+
       if (response.data && response.data.success) {
         setFuturesData(response.data.data.futures_markets || [])
         console.log('✅ FuturesMarketData 期货数据获取成功:', response.data.data.futures_markets?.length)
+      } else {
+        setError(`API错误: ${response.data?.error || '未知错误'}`)
       }
     } catch (error) {
       console.error('❌ FuturesMarketData 期货数据获取失败:', error)
+      if (error.response) {
+        // 服务器返回了错误响应
+        let errorMessage = `HTTP ${error.response.status}`
+        if (error.response.data) {
+          if (typeof error.response.data === 'string') {
+            errorMessage += `: ${error.response.data}`
+          } else if (typeof error.response.data === 'object') {
+            errorMessage += `:\n${JSON.stringify(error.response.data, null, 2)}`
+          }
+        } else {
+          errorMessage += `: ${error.response.statusText}`
+        }
+        setError(errorMessage)
+      } else if (error.request) {
+        // 请求发出但没有收到响应
+        setError('网络错误: 无法连接到服务器')
+      } else {
+        // 其他错误
+        setError(`请求错误: ${error.message}`)
+      }
       setFuturesData([])
     } finally {
       setIsLoading(false)
@@ -72,6 +103,26 @@ const FuturesMarketData = () => {
     return (
       <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <CircularProgress />
+      </Box>
+    )
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ height: '100%', p: 2 }}>
+        <Typography variant="h6" gutterBottom sx={{ color: '#fff' }}>
+          期货市场数据 - {currentToken}
+        </Typography>
+        <Card sx={{ height: 'calc(100% - 40px)', bgcolor: 'error.dark' }}>
+          <CardContent sx={{ p: 2 }}>
+            <Typography variant="h6" color="error" gutterBottom>
+              ❌ 数据加载失败
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#fff', fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
+              {error}
+            </Typography>
+          </CardContent>
+        </Card>
       </Box>
     )
   }

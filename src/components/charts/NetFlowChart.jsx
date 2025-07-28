@@ -19,6 +19,7 @@ import ReactECharts from 'echarts-for-react'
 import { useStore } from '../../store/useStore'
 import axios from 'axios'
 import { netflowCache } from '../../utils/chartCache'
+import { queuedRequest } from '../../utils/requestQueue'
 
 const NetFlowChart = () => {
   const theme = useTheme()
@@ -149,9 +150,11 @@ const NetFlowChart = () => {
 
       console.log('🌐 发送NetFlow请求:', requestUrl, requestParams)
 
-      const response = await axios.get(requestUrl, {
-        params: requestParams
-      })
+      // 使用请求队列，中等优先级
+      const response = await queuedRequest(
+        () => axios.get(requestUrl, { params: requestParams }),
+        7 // 中等偏高优先级（净流入数据比较重要）
+      )
 
       console.log('📡 NetFlow API 完整响应:', response)
       console.log('📊 NetFlow API response:', response.data)
@@ -176,7 +179,26 @@ const NetFlowChart = () => {
       }
     } catch (err) {
       console.error('Failed to fetch net flow data:', err)
-      setError(`加载数据失败: ${err.message}`)
+      if (err.response) {
+        // 服务器返回了错误响应
+        let errorMessage = `HTTP ${err.response.status}`
+        if (err.response.data) {
+          if (typeof err.response.data === 'string') {
+            errorMessage += `: ${err.response.data}`
+          } else if (typeof err.response.data === 'object') {
+            errorMessage += `:\n${JSON.stringify(err.response.data, null, 2)}`
+          }
+        } else {
+          errorMessage += `: ${err.response.statusText}`
+        }
+        setError(errorMessage)
+      } else if (err.request) {
+        // 请求发出但没有收到响应
+        setError('网络错误: 无法连接到服务器')
+      } else {
+        // 其他错误
+        setError(`请求错误: ${err.message}`)
+      }
     } finally {
       setLoading(false)
     }
@@ -458,20 +480,40 @@ const NetFlowChart = () => {
 
   if (error || !data) {
     return (
-      <Card sx={{ height: '100%' }}>
+      <Card sx={{ height: '100%', bgcolor: error ? 'error.dark' : 'background.paper' }}>
         <CardContent>
-          <Typography variant="h6" gutterBottom>
-            资金净流入
+          <Typography variant="h6" gutterBottom color={error ? 'error' : 'text.primary'}>
+            资金净流入 {error && '❌'}
           </Typography>
           <Box sx={{
             height: 300,
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            p: 2
           }}>
-            <Typography color="text.secondary">
-              {error || '暂无数据'}
-            </Typography>
+            {error ? (
+              <>
+                <Typography variant="h6" color="error" gutterBottom>
+                  数据加载失败
+                </Typography>
+                <Typography variant="body2" sx={{
+                  color: '#fff',
+                  fontFamily: 'monospace',
+                  whiteSpace: 'pre-wrap',
+                  textAlign: 'center',
+                  maxWidth: '100%',
+                  overflow: 'auto'
+                }}>
+                  {error}
+                </Typography>
+              </>
+            ) : (
+              <Typography color="text.secondary">
+                暂无数据
+              </Typography>
+            )}
           </Box>
         </CardContent>
       </Card>

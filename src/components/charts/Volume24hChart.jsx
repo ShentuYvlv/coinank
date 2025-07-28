@@ -20,6 +20,7 @@ import ReactECharts from 'echarts-for-react'
 import axios from 'axios'
 import { useStore } from '../../store/useStore'
 import { volume24hCache } from '../../utils/chartCache'
+import { queuedRequest } from '../../utils/requestQueue'
 
 const EXCHANGES = [
   { value: 'ALL', label: '全部交易所' },
@@ -114,13 +115,17 @@ const Volume24hChart = () => {
 
     try {
       console.log('🌐 发送Volume24h请求:', `/api/volume24h/${currentToken}`)
-      // 使用后端API而不是直接调用Coinank API
-      const response = await axios.get(`/api/volume24h/${currentToken}`, {
-        params: {
-          exchangeName: exchange,
-          interval: interval
-        }
-      })
+
+      // 使用请求队列，低优先级
+      const response = await queuedRequest(
+        () => axios.get(`/api/volume24h/${currentToken}`, {
+          params: {
+            exchangeName: exchange,
+            interval: interval
+          }
+        }),
+        2 // 低优先级
+      )
 
       if (response.data && response.data.success) {
         // 缓存数据
@@ -131,7 +136,26 @@ const Volume24hChart = () => {
       }
     } catch (err) {
       console.error('Failed to fetch volume data:', err)
-      setError('加载数据失败')
+      if (err.response) {
+        // 服务器返回了错误响应
+        let errorMessage = `HTTP ${err.response.status}`
+        if (err.response.data) {
+          if (typeof err.response.data === 'string') {
+            errorMessage += `: ${err.response.data}`
+          } else if (typeof err.response.data === 'object') {
+            errorMessage += `:\n${JSON.stringify(err.response.data, null, 2)}`
+          }
+        } else {
+          errorMessage += `: ${err.response.statusText}`
+        }
+        setError(errorMessage)
+      } else if (err.request) {
+        // 请求发出但没有收到响应
+        setError('网络错误: 无法连接到服务器')
+      } else {
+        // 其他错误
+        setError(`请求错误: ${err.message}`)
+      }
     } finally {
       setLoading(false)
     }

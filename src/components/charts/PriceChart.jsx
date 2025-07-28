@@ -33,6 +33,7 @@ import zoomPlugin from 'chartjs-plugin-zoom'
 import { useStore } from '../../store/useStore'
 import axios from 'axios'
 import { openinterestCache } from '../../utils/chartCache'
+import { queuedRequest } from '../../utils/requestQueue'
 
 ChartJS.register(
   CategoryScale,
@@ -95,13 +96,18 @@ function PriceChart() {
     setError(null)
 
     try {
-      console.log('🌐 发送OpenInterest请求:', `/api/openinterest/${currentToken}`)
-      const response = await axios.get(`/api/openinterest/${currentToken}`, {
-        params: {
-          interval: currentTimeframe,
-          type: currentAsset.toUpperCase()
-        }
-      })
+      console.log('🌐 发送PriceChart OpenInterest请求:', `/api/openinterest/${currentToken}`)
+
+      // 使用请求队列，低优先级（PriceChart的OI数据优先级较低）
+      const response = await queuedRequest(
+        () => axios.get(`/api/openinterest/${currentToken}`, {
+          params: {
+            interval: currentTimeframe,
+            type: currentAsset.toUpperCase()
+          }
+        }),
+        1 // 最低优先级，避免与OpenInterestChart冲突
+      )
 
       if (response.data && response.data.success) {
         // 缓存数据

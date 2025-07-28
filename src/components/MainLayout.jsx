@@ -7,6 +7,7 @@ import TokenNews from './TokenNews';
 import NetFlowChart from './charts/NetFlowChart';
 import FuturesMarketData from './FuturesMarketData';
 import SpotMarketData from './SpotMarketData';
+import QueueStatus from './QueueStatus';
 import { useStore } from '../store/useStore';
 
 function MainLayout() {
@@ -166,6 +167,7 @@ function MainLayout() {
       </Box>
 
       <LoadingOverlay />
+      <QueueStatus />
     </Box>
   );
 }

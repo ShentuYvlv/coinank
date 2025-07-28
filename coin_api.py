@@ -13,45 +13,240 @@ import urllib.error
 import urllib.parse
 import gzip
 import io
+import os
 from datetime import datetime
+from proxy_config import get_proxy_config, get_best_proxy
 
 
 class CoinankAPI:
     """Coinank API核心类 - 使用urllib直连"""
 
-    def __init__(self):
+    def __init__(self, use_proxy=True):
         """
-        初始化API客户端 - 使用urllib直连
+        初始化API客户端 - 支持代理连接和重试机制
         """
         self.base_url = "https://api.coinank.com"
         self.main_url = "https://coinank.com"
+
+        # 代理重试配置
+        self.max_proxy_retries = 3
+        self.proxy_retry_count = 0
+        self.proxy_failed = False
+
+        # 代理配置 - 使用默认代理
+        self.use_proxy = use_proxy
+        if use_proxy:
+            # 获取代理配置
+            self.proxy_config = get_best_proxy()
+            print(f"🎯 使用代理配置: {self.proxy_config}")
+        else:
+            self.proxy_config = None
 
         # 会话缓存
         self.session_established = False
         self.last_session_time = 0
         self.session_timeout = 300  # 5分钟会话超时
 
-        # 配置urllib直连
-        self.setup_urllib_direct()
-        print("🔧 使用urllib直连模式")
+        # 请求限流控制
+        self.last_request_time = 0
+        self.min_request_interval = 1.0  # 最小请求间隔(秒)
+        self.request_count = 0
+        self.max_requests_per_minute = 30  # 每分钟最大请求数
+        self.request_times = []  # 记录请求时间
+
+        # 配置连接方式
+        self.setup_connection_with_retry()
+        print(f"🔧 使用{'代理' if self.use_proxy else '直连'}模式")
     
-    def setup_urllib_direct(self):
-        """配置urllib直连"""
+    def setup_connection_with_retry(self):
+        """配置连接方式 - 带重试机制的代理优先"""
+        if self.use_proxy and not self.proxy_failed:
+            # 尝试代理连接，最多重试3次
+            for attempt in range(self.max_proxy_retries):
+                try:
+                    print(f"🔄 尝试代理连接 (第 {attempt + 1}/{self.max_proxy_retries} 次)...")
+                    if self.setup_proxy_connection():
+                        print("✅ 代理连接配置成功")
+                        self.proxy_retry_count = 0  # 重置重试计数
+                        return
+                    else:
+                        self.proxy_retry_count += 1
+                        if attempt < self.max_proxy_retries - 1:
+                            wait_time = (attempt + 1) * 2  # 递增等待时间
+                            print(f"⏳ 代理连接失败，等待 {wait_time} 秒后重试...")
+                            time.sleep(wait_time)
+
+                except Exception as e:
+                    self.proxy_retry_count += 1
+                    print(f"❌ 代理连接异常 (第 {attempt + 1} 次): {e}")
+                    if attempt < self.max_proxy_retries - 1:
+                        wait_time = (attempt + 1) * 2
+                        print(f"⏳ 等待 {wait_time} 秒后重试...")
+                        time.sleep(wait_time)
+
+            # 代理重试失败，标记为失败并切换到直连
+            print(f"❌ 代理连接重试 {self.max_proxy_retries} 次均失败，切换到直连模式")
+            self.proxy_failed = True
+            self.use_proxy = False
+
+        # 使用直连
+        try:
+            self.setup_direct_connection()
+            print("✅ 直连配置完成")
+        except Exception as e:
+            print(f"❌ 直连配置失败: {e}")
+            # 使用默认opener作为最后的回退
+            self.opener = urllib.request.build_opener()
+
+    def setup_connection(self):
+        """配置连接方式 - 兼容旧方法"""
+        return self.setup_connection_with_retry()
+
+    def setup_proxy_connection(self):
+        """配置代理连接"""
+        try:
+            print(f"🔄 尝试配置代理: {self.proxy_config}")
+
+            # 测试代理连接
+            if not self.test_proxy():
+                return False
+
+            # 创建代理handler
+            proxy_handler = urllib.request.ProxyHandler(self.proxy_config)
+            self.opener = urllib.request.build_opener(proxy_handler)
+
+            # 设置User-Agent等头部
+            self.opener.addheaders = [
+                ('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'),
+                ('Accept', 'application/json, text/plain, */*'),
+                ('Accept-Language', 'zh-CN,zh;q=0.9,en;q=0.8'),
+                ('Accept-Encoding', 'gzip, deflate, br'),
+                ('Connection', 'keep-alive'),
+                ('Cache-Control', 'no-cache'),
+                ('Pragma', 'no-cache')
+            ]
+
+            return True
+
+        except Exception as e:
+            print(f"❌ 代理配置失败: {e}")
+            return False
+
+    def setup_direct_connection(self):
+        """配置直连"""
         try:
             # 创建无代理的opener
             proxy_handler = urllib.request.ProxyHandler({})
             self.opener = urllib.request.build_opener(proxy_handler)
-            print("✅ urllib直连配置完成")
+
+            # 设置User-Agent等头部
+            self.opener.addheaders = [
+                ('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'),
+                ('Accept', 'application/json, text/plain, */*'),
+                ('Accept-Language', 'zh-CN,zh;q=0.9,en;q=0.8'),
+                ('Accept-Encoding', 'gzip, deflate, br'),
+                ('Connection', 'keep-alive'),
+                ('Cache-Control', 'no-cache'),
+                ('Pragma', 'no-cache')
+            ]
+
         except Exception as e:
-            print(f"❌ urllib配置失败: {e}")
-            # 使用默认opener
-            self.opener = urllib.request.build_opener()
-    
+            print(f"❌ 直连配置失败: {e}")
+            raise
+
+    def test_proxy(self, timeout=10):
+        """测试代理连接 - 增强版本"""
+        try:
+            print("🧪 测试代理连接...")
+
+            # 创建临时的代理opener进行测试
+            proxy_handler = urllib.request.ProxyHandler(self.proxy_config)
+            test_opener = urllib.request.build_opener(proxy_handler)
+
+            # 设置请求头
+            test_opener.addheaders = [
+                ('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'),
+                ('Accept', 'application/json, text/plain, */*'),
+                ('Connection', 'keep-alive')
+            ]
+
+            # 测试多个URL，提高成功率
+            test_urls = [
+                "http://httpbin.org/ip",
+                "https://api.ipify.org?format=json",
+                "http://ip-api.com/json"
+            ]
+
+            for test_url in test_urls:
+                try:
+                    req = urllib.request.Request(test_url)
+                    with test_opener.open(req, timeout=timeout) as response:
+                        if response.getcode() == 200:
+                            content = response.read().decode('utf-8')
+                            try:
+                                result = json.loads(content)
+                                ip = result.get('origin') or result.get('ip') or result.get('query', 'unknown')
+                                print(f"✅ 代理测试成功，IP: {ip}")
+                                return True
+                            except json.JSONDecodeError:
+                                # 如果不是JSON，但状态码是200，也认为成功
+                                print(f"✅ 代理测试成功 (非JSON响应)")
+                                return True
+                except Exception as url_error:
+                    print(f"⚠️ 测试URL {test_url} 失败: {url_error}")
+                    continue
+
+            print("❌ 所有测试URL均失败")
+            return False
+
+        except Exception as e:
+            print(f"❌ 代理测试失败: {e}")
+            return False
+
+    def rate_limit_check(self):
+        """检查请求限流"""
+        current_time = time.time()
+
+        # 清理1分钟前的请求记录
+        self.request_times = [t for t in self.request_times if current_time - t < 60]
+
+        # 检查每分钟请求数限制
+        if len(self.request_times) >= self.max_requests_per_minute:
+            wait_time = 60 - (current_time - self.request_times[0])
+            if wait_time > 0:
+                print(f"⏳ 请求限流，等待 {wait_time:.1f} 秒...")
+                time.sleep(wait_time)
+
+        # 检查最小请求间隔
+        if current_time - self.last_request_time < self.min_request_interval:
+            wait_time = self.min_request_interval - (current_time - self.last_request_time)
+            time.sleep(wait_time)
+
+        # 记录请求时间
+        self.request_times.append(time.time())
+        self.last_request_time = time.time()
+
+    def get_connection_status(self):
+        """获取连接状态信息"""
+        return {
+            'use_proxy': self.use_proxy,
+            'proxy_failed': self.proxy_failed,
+            'proxy_retry_count': self.proxy_retry_count,
+            'max_proxy_retries': self.max_proxy_retries,
+            'proxy_config': self.proxy_config if self.use_proxy else None,
+            'connection_type': '代理' if self.use_proxy else '直连',
+            'status': '正常' if not self.proxy_failed else '代理失败-已切换直连'
+        }
+
     def test_connection(self):
-        """测试网络连接 - 使用urllib"""
-        print("� 测试网络连接...")
+        """测试网络连接 - 支持代理"""
+        connection_type = "代理" if self.use_proxy else "直连"
+        print(f"🧪 测试网络连接 ({connection_type})...")
 
         try:
+            # 应用请求限流
+            self.rate_limit_check()
+
             req = urllib.request.Request(
                 self.main_url,
                 headers={
@@ -61,14 +256,22 @@ class CoinankAPI:
 
             with self.opener.open(req, timeout=10) as response:
                 if response.getcode() == 200:
-                    print("✅ 网络连接正常")
+                    print(f"✅ 网络连接正常 ({connection_type})")
                     return True
                 else:
                     print(f"❌ 连接失败，状态码: {response.getcode()}")
                     return False
 
         except Exception as e:
-            print(f"❌ 网络连接错误: {e}")
+            print(f"❌ 网络连接错误 ({connection_type}): {e}")
+
+            # 如果代理失败，尝试切换到直连
+            if self.use_proxy:
+                print("🔄 代理连接失败，尝试切换到直连...")
+                self.use_proxy = False
+                self.setup_direct_connection()
+                return self.test_connection()
+
             return False
     
     def establish_session(self):
@@ -146,9 +349,19 @@ class CoinankAPI:
         }
     
     def fetch_data_with_retry(self, url, params, data_type, max_retries=2, allow_empty_response=False):
-        """带重试的数据获取 - 使用urllib直连"""
+        """带重试的数据获取 - 支持代理和限流"""
         for attempt in range(max_retries):
             try:
+                # 应用请求限流
+                self.rate_limit_check()
+
+                # 如果是代理失败导致的重试，尝试重新配置连接
+                if attempt > 0 and self.use_proxy and self.proxy_retry_count > 0:
+                    print(f"🔄 第 {attempt + 1} 次重试，检查代理连接...")
+                    if not self.test_proxy(timeout=5):
+                        print("⚠️ 代理连接异常，尝试重新配置...")
+                        self.setup_connection_with_retry()
+
                 headers = self.get_api_headers()
 
                 # 构建完整URL
@@ -405,7 +618,18 @@ class CoinankAPI:
         
         # 使用允许空响应的选项，避免某些代币不支持时导致API失败
         return self.fetch_data_with_retry(url, params, "资金费率历史", max_retries=2, allow_empty_response=True)
-    
+
+    def fetch_coin_detail(self, base_coin="PEPE"):
+        """获取代币详细信息"""
+        url = f"{self.base_url}/api/instruments/coinDetail"
+        params = {
+            'baseCoin': base_coin
+        }
+
+        print(f"🔍 获取 {base_coin} 代币详情，参数: {params}")
+
+        return self.fetch_data_with_retry(url, params, "代币详情")
+
     def get_complete_token_data(self, token="PEPE"):
         """获取完整的代币数据 - 优化版本：并行请求"""
         print(f"📊 正在获取 {token} 完整数据...")
@@ -533,21 +757,22 @@ class CoinankAPI:
         }
 
 
-def create_api_client():
-    """创建API客户端实例 - 使用urllib直连"""
-    return CoinankAPI()
+def create_api_client(use_proxy=True):
+    """创建API客户端实例 - 支持代理连接"""
+    return CoinankAPI(use_proxy=use_proxy)
 
 
-def quick_test():
-    """快速测试API连接 - 使用urllib直连"""
-    print("🧪 快速测试API连接...")
+def quick_test(use_proxy=True):
+    """快速测试API连接 - 支持代理"""
+    connection_type = "代理" if use_proxy else "直连"
+    print(f"🧪 快速测试API连接 ({connection_type})...")
 
-    api = create_api_client()
+    api = create_api_client(use_proxy=use_proxy)
     if api.test_connection():
-        print("✅ urllib直连成功")
+        print(f"✅ {connection_type}连接成功")
         return api
     else:
-        print("❌ urllib直连失败")
+        print(f"❌ {connection_type}连接失败")
         return None
 
 

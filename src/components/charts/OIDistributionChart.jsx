@@ -5,6 +5,7 @@ import { Doughnut } from 'react-chartjs-2'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { useStore } from '../../store/useStore'
 import axios from 'axios'
+import { queuedRequest } from '../../utils/requestQueue'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -12,13 +13,19 @@ function OIDistributionChart() {
   const { currentToken } = useStore()
   const [oiData, setOiData] = useState([])
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState(null)
 
   // 获取持仓量分布数据 - 使用期货数据中的持仓量信息
   const fetchOIData = async () => {
     try {
       setIsLoading(true)
-      // 使用期货数据API获取各交易所的持仓量
-      const response = await axios.get(`/api/futures-data/${currentToken}`)
+      setError(null)
+
+      // 使用请求队列，低优先级（图表数据不如表格数据重要）
+      const response = await queuedRequest(
+        () => axios.get(`/api/futures-data/${currentToken}`),
+        3 // 低优先级
+      )
 
       if (response.data && response.data.success) {
         const futuresMarkets = response.data.data.futures_markets || []
@@ -41,9 +48,31 @@ function OIDistributionChart() {
         setOiData(processedOiData)
         console.log('✅ 持仓量分布数据获取成功:', processedOiData.length, '个交易所')
         console.log('持仓量数据示例:', processedOiData.slice(0, 3))
+      } else {
+        setError(`API错误: ${response.data?.error || '未知错误'}`)
       }
     } catch (error) {
       console.error('❌ 持仓量分布数据获取失败:', error)
+      if (error.response) {
+        // 服务器返回了错误响应
+        let errorMessage = `HTTP ${error.response.status}`
+        if (error.response.data) {
+          if (typeof error.response.data === 'string') {
+            errorMessage += `: ${error.response.data}`
+          } else if (typeof error.response.data === 'object') {
+            errorMessage += `:\n${JSON.stringify(error.response.data, null, 2)}`
+          }
+        } else {
+          errorMessage += `: ${error.response.statusText}`
+        }
+        setError(errorMessage)
+      } else if (error.request) {
+        // 请求发出但没有收到响应
+        setError('网络错误: 无法连接到服务器')
+      } else {
+        // 其他错误
+        setError(`请求错误: ${error.message}`)
+      }
       setOiData([])
     } finally {
       setIsLoading(false)
@@ -61,6 +90,26 @@ function OIDistributionChart() {
     return (
       <Card sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <CircularProgress />
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card sx={{ height: '100%', bgcolor: 'error.dark' }}>
+        <CardHeader
+          avatar={<PieIcon />}
+          title="持仓量分布"
+          titleTypographyProps={{ variant: 'h6', color: 'error' }}
+        />
+        <CardContent sx={{ p: 2 }}>
+          <Typography variant="h6" color="error" gutterBottom>
+            ❌ 数据加载失败
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#fff', fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
+            {error}
+          </Typography>
+        </CardContent>
       </Card>
     )
   }

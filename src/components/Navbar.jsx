@@ -9,20 +9,28 @@ import {
   Chip,
   TextField,
   InputAdornment,
+  Grid,
+  Skeleton,
+  Tooltip,
 } from '@mui/material'
 import {
   ShowChart as ChartIcon,
   Refresh as RefreshIcon,
   VisibilityOff as HideIcon,
   Search as SearchIcon,
+  TrendingUp as TrendingUpIcon,
+  AccountBalance as AccountBalanceIcon,
+  MonetizationOn as MonetizationOnIcon,
 } from '@mui/icons-material'
 import { useStore } from '../store/useStore'
 import { useSnackbar } from 'notistack'
+import { useNavbarData } from '../hooks/useNavbarData'
 
 function Navbar() {
   const { currentToken, refreshData, switchToken, isLoading, clearAllCache } = useStore()
   const { enqueueSnackbar } = useSnackbar()
   const [tokenInput, setTokenInput] = useState('')
+  const navbarData = useNavbarData()
 
   const handleForceHideLoading = () => {
     const spinner = document.getElementById('loadingSpinner')
@@ -76,13 +84,90 @@ function Navbar() {
       }}
     >
       <Toolbar>
-        <ChartIcon sx={{ mr: 2 }} />
-        <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
-          Coinank Live
-        </Typography>
 
         <Box sx={{ flexGrow: 1 }} />
+          {/* 数据显示区域 */}
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'left', flexWrap: 'wrap' }}>
+            {/* 总持仓量 */}
+            <Tooltip title="总持仓量">
+              <Chip
+                icon={<TrendingUpIcon />}
+                label={navbarData.loading ? <Skeleton width={60} /> : `持仓: ${navbarData.totalOI || '-'}`}
+                size="small"
+                variant="outlined"
+                sx={{
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  borderColor: 'rgba(255, 255, 255, 0.23)',
+                  '& .MuiChip-icon': { color: '#4caf50' }
+                }}
+              />
+            </Tooltip>
 
+            {/* 资金费率 */}
+            {navbarData.fundingRates.length > 0 && (
+              <Tooltip title="前三交易所资金费率">
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                  {navbarData.fundingRates.map((item, index) => (
+                    <Chip
+                      key={index}
+                      label={`${item.exchange}: ${item.rate}`}
+                      size="small"
+                      variant="outlined"
+                      sx={{
+                        color: 'rgba(255, 255, 255, 0.8)',
+                        borderColor: 'rgba(255, 255, 255, 0.23)',
+                        fontSize: '0.7rem'
+                      }}
+                    />
+                  ))}
+                </Box>
+              </Tooltip>
+            )}
+
+            {/* 市值 */}
+            <Tooltip title="市值">
+              <Chip
+                icon={<MonetizationOnIcon />}
+                label={navbarData.loading ? <Skeleton width={60} /> : `市值: ${navbarData.marketCap || '-'}`}
+                size="small"
+                variant="outlined"
+                sx={{
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  borderColor: 'rgba(255, 255, 255, 0.23)',
+                  '& .MuiChip-icon': { color: '#ff9800' }
+                }}
+              />
+            </Tooltip>
+
+            {/* FDV */}
+            <Tooltip title="完全稀释估值">
+              <Chip
+                icon={<AccountBalanceIcon />}
+                label={navbarData.loading ? <Skeleton width={60} /> : `FDV: ${navbarData.fdv || '-'}`}
+                size="small"
+                variant="outlined"
+                sx={{
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  borderColor: 'rgba(255, 255, 255, 0.23)',
+                  '& .MuiChip-icon': { color: '#2196f3' }
+                }}
+              />
+            </Tooltip>
+
+            {/* 供应量信息 */}
+            <Tooltip title={`总供应量: ${navbarData.maxSupply || '-'} | 流通量: ${navbarData.circulatingSupply || '-'}`}>
+              <Chip
+                label={navbarData.loading ? <Skeleton width={80} /> : `供应: ${navbarData.circulatingSupply || '-'}/${navbarData.maxSupply || '-'}`}
+                size="small"
+                variant="outlined"
+                sx={{
+                  color: 'rgba(255, 255, 255, 0.8)',
+                  borderColor: 'rgba(255, 255, 255, 0.23)',
+                  fontSize: '0.7rem'
+                }}
+              />
+            </Tooltip>
+          </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           {/* 代币搜索输入框 */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -131,23 +216,15 @@ function Navbar() {
             />
           </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              当前代币：
-            </Typography>
-            <Chip
-              label={currentToken}
-              color="warning"
-              size="small"
-              sx={{ fontWeight: 'bold' }}
-            />
-          </Box>
 
           <Button
             variant="outlined"
             size="small"
             startIcon={<RefreshIcon />}
-            onClick={refreshData}
+            onClick={() => {
+              refreshData()
+              navbarData.refresh()
+            }}
             disabled={isLoading}
             sx={{ borderColor: 'rgba(255, 255, 255, 0.23)' }}
           >
@@ -167,14 +244,14 @@ function Navbar() {
             清除缓存
           </Button>
 
-          <IconButton
+          {/* <IconButton
             size="small"
             color="warning"
             onClick={handleForceHideLoading}
             title="强制隐藏加载状态"
           >
             <HideIcon />
-          </IconButton>
+          </IconButton> */}
         </Box>
       </Toolbar>
     </AppBar>
