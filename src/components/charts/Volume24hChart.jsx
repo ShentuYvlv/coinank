@@ -92,7 +92,14 @@ const Volume24hChart = () => {
   }
   
   useEffect(() => {
-    fetchData()
+    if (currentToken) {
+      // 添加短暂延迟，避免在代币切换过程中发送旧token的请求
+      const timer = setTimeout(() => {
+        fetchData()
+      }, 50)
+
+      return () => clearTimeout(timer)
+    }
   }, [currentToken, exchange, interval])
   
   const fetchData = async () => {

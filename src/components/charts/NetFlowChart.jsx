@@ -204,10 +204,17 @@ const NetFlowChart = () => {
     }
   }
 
-  // 组件挂载和参数变化时获取数据
+  // 组件挂载和参数变化时获取数据，添加防抖
   useEffect(() => {
-    console.log('🔄 参数变化，重新获取数据:', { exchangeName, interval, currentToken })
-    fetchNetFlowData()
+    if (currentToken) {
+      console.log('🔄 参数变化，重新获取数据:', { exchangeName, interval, currentToken })
+      // 添加短暂延迟，避免在代币切换过程中发送旧token的请求
+      const timer = setTimeout(() => {
+        fetchNetFlowData()
+      }, 50)
+
+      return () => clearTimeout(timer)
+    }
   }, [exchangeName, interval, currentToken])
 
   // 生成ECharts配置选项

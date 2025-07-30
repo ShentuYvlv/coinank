@@ -7,7 +7,7 @@ import TokenNews from './TokenNews';
 import NetFlowChart from './charts/NetFlowChart';
 import FuturesMarketData from './FuturesMarketData';
 import SpotMarketData from './SpotMarketData';
-import QueueStatus from './QueueStatus';
+// import QueueStatus from './QueueStatus'; // 已禁用队列机制
 import { useStore } from '../store/useStore';
 
 function MainLayout() {
@@ -167,7 +167,7 @@ function MainLayout() {
       </Box>
 
       <LoadingOverlay />
-      <QueueStatus />
+      {/* <QueueStatus /> 已禁用队列机制 */}
     </Box>
   );
 }

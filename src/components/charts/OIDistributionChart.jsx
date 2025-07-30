@@ -79,10 +79,15 @@ function OIDistributionChart() {
     }
   }
 
-  // 当代币切换时重新获取数据
+  // 当代币切换时重新获取数据，添加防抖
   useEffect(() => {
     if (currentToken) {
-      fetchOIData()
+      // 添加短暂延迟，避免在代币切换过程中发送旧token的请求
+      const timer = setTimeout(() => {
+        fetchOIData()
+      }, 50)
+
+      return () => clearTimeout(timer)
     }
   }, [currentToken])
 

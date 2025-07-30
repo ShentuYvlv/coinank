@@ -167,9 +167,16 @@ const OpenInterestChart = () => {
     }
   }
   
-  // 组件挂载和参数变化时获取数据
+  // 组件挂载和参数变化时获取数据，添加防抖
   useEffect(() => {
-    fetchOpenInterestData()
+    if (currentToken) {
+      // 添加短暂延迟，避免在代币切换过程中发送旧token的请求
+      const timer = setTimeout(() => {
+        fetchOpenInterestData()
+      }, 50)
+
+      return () => clearTimeout(timer)
+    }
   }, [interval, dataType, currentToken])
 
   // 组件卸载时清理

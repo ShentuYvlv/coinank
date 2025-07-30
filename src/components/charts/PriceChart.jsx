@@ -124,10 +124,15 @@ function PriceChart() {
     }
   }
 
-  // 当时间周期变化时重新获取数据
+  // 当时间周期变化时重新获取数据，添加防抖
   useEffect(() => {
     if (currentToken && currentTimeframe) {
-      fetchOpenInterestData()
+      // 添加短暂延迟，避免在代币切换过程中发送旧token的请求
+      const timer = setTimeout(() => {
+        fetchOpenInterestData()
+      }, 50)
+
+      return () => clearTimeout(timer)
     }
   }, [currentToken, currentTimeframe, currentAsset])
 

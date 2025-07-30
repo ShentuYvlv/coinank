@@ -167,22 +167,27 @@ const useStore = create(
     },
 
     loadTokenData: async (token) => {
-      const { isLoading } = get()
-      if (isLoading) {
+      const { isLoading, currentToken } = get()
+
+      // 防止重复加载同一个token（但允许从switchToken调用）
+      if (isLoading && token === currentToken) {
         console.log(`⚠️ ${token} 数据正在加载中，跳过重复请求`)
         return
       }
 
       console.log(`🔄 开始加载代币数据: ${token}`)
 
+      // 设置加载状态
+      set({ isLoading: true })
+
       // 检查缓存
       const cacheKey = `token_${token}`
       console.log(`🔍 检查缓存键: ${CACHE_KEY_PREFIX}${cacheKey}`)
-      
+
       // 先检查localStorage中是否有这个键
       const rawCached = localStorage.getItem(CACHE_KEY_PREFIX + cacheKey)
       console.log(`📝 localStorage原始数据:`, rawCached ? '存在' : '不存在')
-      
+
       if (rawCached) {
         try {
           const parsedCache = JSON.parse(rawCached)
@@ -197,7 +202,7 @@ const useStore = create(
           console.error(`❌ 缓存数据解析失败:`, e)
         }
       }
-      
+
       const cachedData = cacheUtils.get(cacheKey)
 
       if (cachedData) {
@@ -207,7 +212,7 @@ const useStore = create(
           hasFutures: !!cachedData.futures,
           dataKeys: Object.keys(cachedData)
         })
-        
+
         set({
           data: cachedData,
           marketData: cachedData,
@@ -218,8 +223,6 @@ const useStore = create(
       } else {
         console.log(`❌ 缓存未命中，原因见上方详细信息`)
       }
-
-      set({ isLoading: true })
 
       try {
         console.log(`📊 从API加载代币数据: ${token}`)
@@ -239,7 +242,7 @@ const useStore = create(
             lastUpdate: new Date(),
             isLoading: false
           })
-          
+
           return Promise.resolve(tokenData)
         } else {
           console.error(`❌ ${token} 数据加载失败:`, response.data?.error || '未知错误')
@@ -273,15 +276,18 @@ const useStore = create(
       console.log(`🔄 切换代币: ${currentToken} -> ${token}`)
 
       try {
-        // 直接加载完整数据（已优化为并发）
-        console.log(`📊 加载 ${token} 完整数据...`)
-        await loadTokenData(token)
+        // 先更新 currentToken，避免组件使用旧token发送请求
         set({ currentToken: token })
+        console.log(`📊 加载 ${token} 完整数据...`)
+
+        // 然后加载完整数据（已优化为并发）
+        await loadTokenData(token)
         console.log(`✅ 成功切换到代币: ${token}`)
 
       } catch (error) {
         console.error(`❌ 切换到代币 ${token} 失败:`, error)
-        // 不更新 currentToken，保持原来的代币
+        // 如果加载失败，恢复到原来的代币
+        set({ currentToken, isLoading: false })
         throw error // 重新抛出错误让UI处理
       }
     },

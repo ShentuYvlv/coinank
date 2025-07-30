@@ -47,12 +47,12 @@ class CoinankAPI:
         self.last_session_time = 0
         self.session_timeout = 300  # 5分钟会话超时
 
-        # 请求限流控制
-        self.last_request_time = 0
-        self.min_request_interval = 1.0  # 最小请求间隔(秒)
-        self.request_count = 0
-        self.max_requests_per_minute = 30  # 每分钟最大请求数
-        self.request_times = []  # 记录请求时间
+        # 请求限流控制 - 已禁用，恢复直接并发访问
+        # self.last_request_time = 0
+        # self.min_request_interval = 1.0  # 最小请求间隔(秒)
+        # self.request_count = 0
+        # self.max_requests_per_minute = 30  # 每分钟最大请求数
+        # self.request_times = []  # 记录请求时间
 
         # 配置连接方式
         self.setup_connection_with_retry()
@@ -72,17 +72,21 @@ class CoinankAPI:
                     else:
                         self.proxy_retry_count += 1
                         if attempt < self.max_proxy_retries - 1:
-                            wait_time = (attempt + 1) * 2  # 递增等待时间
-                            print(f"⏳ 代理连接失败，等待 {wait_time} 秒后重试...")
-                            time.sleep(wait_time)
+                            # 注释：已禁用代理重试延迟
+                            # wait_time = (attempt + 1) * 2  # 递增等待时间
+                            # print(f"⏳ 代理连接失败，等待 {wait_time} 秒后重试...")
+                            # time.sleep(wait_time)
+                            print(f"🔄 代理连接失败，立即重试 (已禁用延迟)...")
 
                 except Exception as e:
                     self.proxy_retry_count += 1
                     print(f"❌ 代理连接异常 (第 {attempt + 1} 次): {e}")
                     if attempt < self.max_proxy_retries - 1:
-                        wait_time = (attempt + 1) * 2
-                        print(f"⏳ 等待 {wait_time} 秒后重试...")
-                        time.sleep(wait_time)
+                        # 注释：已禁用代理异常重试延迟
+                        # wait_time = (attempt + 1) * 2
+                        # print(f"⏳ 等待 {wait_time} 秒后重试...")
+                        # time.sleep(wait_time)
+                        print(f"🔄 代理异常，立即重试 (已禁用延迟)...")
 
             # 代理重试失败，标记为失败并切换到直连
             print(f"❌ 代理连接重试 {self.max_proxy_retries} 次均失败，切换到直连模式")
@@ -204,27 +208,29 @@ class CoinankAPI:
             return False
 
     def rate_limit_check(self):
-        """检查请求限流"""
-        current_time = time.time()
+        """检查请求限流 - 已禁用，直接返回"""
+        # 注释：已禁用所有限流机制，恢复直接并发访问
+        pass
+        # current_time = time.time()
 
-        # 清理1分钟前的请求记录
-        self.request_times = [t for t in self.request_times if current_time - t < 60]
+        # # 清理1分钟前的请求记录
+        # self.request_times = [t for t in self.request_times if current_time - t < 60]
 
-        # 检查每分钟请求数限制
-        if len(self.request_times) >= self.max_requests_per_minute:
-            wait_time = 60 - (current_time - self.request_times[0])
-            if wait_time > 0:
-                print(f"⏳ 请求限流，等待 {wait_time:.1f} 秒...")
-                time.sleep(wait_time)
+        # # 检查每分钟请求数限制
+        # if len(self.request_times) >= self.max_requests_per_minute:
+        #     wait_time = 60 - (current_time - self.request_times[0])
+        #     if wait_time > 0:
+        #         print(f"⏳ 请求限流，等待 {wait_time:.1f} 秒...")
+        #         time.sleep(wait_time)
 
-        # 检查最小请求间隔
-        if current_time - self.last_request_time < self.min_request_interval:
-            wait_time = self.min_request_interval - (current_time - self.last_request_time)
-            time.sleep(wait_time)
+        # # 检查最小请求间隔
+        # if current_time - self.last_request_time < self.min_request_interval:
+        #     wait_time = self.min_request_interval - (current_time - self.last_request_time)
+        #     time.sleep(wait_time)
 
-        # 记录请求时间
-        self.request_times.append(time.time())
-        self.last_request_time = time.time()
+        # # 记录请求时间
+        # self.request_times.append(time.time())
+        # self.last_request_time = time.time()
 
     def get_connection_status(self):
         """获取连接状态信息"""
@@ -244,8 +250,8 @@ class CoinankAPI:
         print(f"🧪 测试网络连接 ({connection_type})...")
 
         try:
-            # 应用请求限流
-            self.rate_limit_check()
+            # 应用请求限流 - 已禁用
+            # self.rate_limit_check()
 
             req = urllib.request.Request(
                 self.main_url,
@@ -352,8 +358,8 @@ class CoinankAPI:
         """带重试的数据获取 - 支持代理和限流"""
         for attempt in range(max_retries):
             try:
-                # 应用请求限流
-                self.rate_limit_check()
+                # 应用请求限流 - 已禁用
+                # self.rate_limit_check()
 
                 # 如果是代理失败导致的重试，尝试重新配置连接
                 if attempt > 0 and self.use_proxy and self.proxy_retry_count > 0:
@@ -421,9 +427,11 @@ class CoinankAPI:
                 print(f"❌ {data_type}数据请求异常 (尝试{attempt+1}): {e}")
 
             if attempt < max_retries - 1:
-                wait_time = 2
-                print(f"⏳ 等待 {wait_time} 秒后重试...")
-                time.sleep(wait_time)
+                # 注释：已禁用重试延迟，直接重试
+                # wait_time = 2
+                # print(f"⏳ 等待 {wait_time} 秒后重试...")
+                # time.sleep(wait_time)
+                print(f"🔄 立即重试 (已禁用延迟)...")
 
         print(f"❌ {data_type}数据获取失败，已尝试 {max_retries} 次")
         
@@ -658,8 +666,8 @@ class CoinankAPI:
         results = {}
         success_count = 0
 
-        # 并行执行所有请求
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+        # 并行执行所有请求 - 提高并发度
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             # 提交所有任务
             future_to_name = {
                 executor.submit(task_func): name
@@ -721,7 +729,7 @@ class CoinankAPI:
         results = {}
         success_count = 0
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
             future_to_name = {
                 executor.submit(task_func): name
                 for name, task_func in basic_tasks

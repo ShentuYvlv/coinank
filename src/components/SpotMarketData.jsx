@@ -73,7 +73,7 @@ const SpotMarketData = () => {
     }
   }
 
-  // 当代币切换时重新获取数据
+  // 当代币切换时重新获取数据（关键组件，不添加延迟）
   useEffect(() => {
     if (currentToken) {
       fetchSpotData()
