@@ -10,6 +10,7 @@ import time
 import json
 import socket
 import threading
+import argparse
 from datetime import datetime
 from flask import Flask, jsonify, request, send_from_directory
 import requests
@@ -68,14 +69,15 @@ def find_available_port(start_port=5000, max_attempts=10):
     print(f"❌ 检查了 {max_attempts} 个端口，都不可用")
     return None
 
-def initialize_api_client():
-    """初始化API客户端 - 使用urllib直连"""
+def initialize_api_client(use_proxy=False):
+    """初始化API客户端 - 支持代理和直连模式"""
     global api_client
     try:
-        print("🔧 正在初始化API客户端...")
+        proxy_mode = "代理模式" if use_proxy else "直连模式"
+        print(f"🔧 正在初始化API客户端 ({proxy_mode})...")
 
-        # 创建API客户端，优先使用代理
-        api_client = CoinankAPI(use_proxy=True)
+        # 创建API客户端，根据参数选择模式
+        api_client = CoinankAPI(use_proxy=use_proxy)
 
         # 测试连接
         if api_client.test_connection():
@@ -1078,22 +1080,30 @@ def kill_process_on_port(port):
 
 if __name__ == '__main__':
     print("🚀 启动Coinank Web应用...")
-    
-    # 处理命令行参数
-    import sys
-    if len(sys.argv) > 1:
-        try:
-            port = int(sys.argv[1])
-            print(f"🔧 使用命令行指定端口: {port}")
-        except ValueError:
-            print(f"⚠️ 无效端口参数: {sys.argv[1]}，使用默认端口")
-            port = find_available_port(5001, 10)
+
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='Coinank Web Application')
+    parser.add_argument('port', nargs='?', type=int, default=None,
+                       help='服务器端口号 (默认: 自动查找)')
+    parser.add_argument('--proxy', type=str, default='false',
+                       help='使用代理模式 (true/false，默认: false)')
+    args = parser.parse_args()
+
+    # 解析代理参数
+    use_proxy = args.proxy.lower() in ['true', '1', 'yes', 'on']
+    proxy_mode = "代理模式" if use_proxy else "直连模式"
+    print(f"🔧 网络模式: {proxy_mode}")
+
+    # 处理端口参数
+    if args.port:
+        port = args.port
+        print(f"🔧 使用命令行指定端口: {port}")
     else:
         # 查找可用端口
         port = find_available_port(5001, 10)
-    
+
     # 初始化API客户端
-    if not initialize_api_client():
+    if not initialize_api_client(use_proxy=use_proxy):
         print("⚠️ 初始化失败，但将继续启动Web服务器...")
 
     # 初始化默认支持的代币

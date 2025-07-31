@@ -13,6 +13,7 @@ import sys
 import platform
 import socket
 import requests
+import argparse
 
 def run_npm_command(command_args):
     """Run npm command with Windows compatibility"""
@@ -92,9 +93,10 @@ def check_backend_ready():
     except:
         return False
 
-def run_backend():
+def run_backend(use_proxy=False):
     """Run the Python Flask backend"""
-    print("🚀 Starting Python backend...")
+    proxy_mode = "代理模式" if use_proxy else "直连模式"
+    print(f"🚀 启动Python后端 ({proxy_mode})...")
 
     # 清理端口5001上的进程
     if not check_port_available(5001):
@@ -102,7 +104,12 @@ def run_backend():
         kill_process_on_port(5001)
         time.sleep(2)
 
-    subprocess.run([sys.executable, "coinank_web_app.py"])
+    # 构建命令行参数
+    cmd = [sys.executable, "coinank_web_app.py"]
+    if use_proxy:
+        cmd.append("--proxy=true")
+
+    subprocess.run(cmd)
 
 def run_frontend():
     """Run the React frontend with Vite"""
@@ -128,10 +135,22 @@ def signal_handler(sig, frame):
     sys.exit(0)
 
 if __name__ == "__main__":
+    # 解析命令行参数
+    parser = argparse.ArgumentParser(description='Coinank Development Server')
+    parser.add_argument('--proxy', type=str, default='false',
+                       help='使用代理模式 (true/false，默认: false)')
+    args = parser.parse_args()
+
+    # 解析代理参数
+    use_proxy = args.proxy.lower() in ['true', '1', 'yes', 'on']
+    proxy_mode = "代理模式" if use_proxy else "直连模式"
+
     # Set up signal handler for graceful shutdown
     signal.signal(signal.SIGINT, signal_handler)
-    
-    print("=== Coinank Development Server ===\n")
+
+    print("=== Coinank Development Server ===")
+    print(f"🔧 网络模式: {proxy_mode}")
+    print()
     
     # Check if npm dependencies are installed
     if not os.path.exists("node_modules"):
@@ -145,7 +164,7 @@ if __name__ == "__main__":
             sys.exit(1)
     
     # Start backend in a separate thread
-    backend_thread = threading.Thread(target=run_backend)
+    backend_thread = threading.Thread(target=run_backend, args=(use_proxy,))
     backend_thread.daemon = True
     backend_thread.start()
 

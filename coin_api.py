@@ -21,9 +21,9 @@ from proxy_config import get_proxy_config, get_best_proxy
 class CoinankAPI:
     """Coinank API核心类 - 使用urllib直连"""
 
-    def __init__(self, use_proxy=True):
+    def __init__(self, use_proxy=False):
         """
-        初始化API客户端 - 支持代理连接和重试机制
+        初始化API客户端 - 默认使用直连模式
         """
         self.base_url = "https://api.coinank.com"
         self.main_url = "https://coinank.com"
@@ -33,7 +33,7 @@ class CoinankAPI:
         self.proxy_retry_count = 0
         self.proxy_failed = False
 
-        # 代理配置 - 使用默认代理
+        # 代理配置 - 默认禁用代理，使用直连
         self.use_proxy = use_proxy
         if use_proxy:
             # 获取代理配置
@@ -41,6 +41,7 @@ class CoinankAPI:
             print(f"🎯 使用代理配置: {self.proxy_config}")
         else:
             self.proxy_config = None
+            print(f"🔗 使用直连模式，不使用代理")
 
         # 会话缓存
         self.session_established = False
@@ -59,7 +60,7 @@ class CoinankAPI:
         print(f"🔧 使用{'代理' if self.use_proxy else '直连'}模式")
     
     def setup_connection_with_retry(self):
-        """配置连接方式 - 带重试机制的代理优先"""
+        """配置连接方式 - 优先使用直连模式"""
         if self.use_proxy and not self.proxy_failed:
             # 尝试代理连接，最多重试3次
             for attempt in range(self.max_proxy_retries):
@@ -93,8 +94,9 @@ class CoinankAPI:
             self.proxy_failed = True
             self.use_proxy = False
 
-        # 使用直连
+        # 使用直连（默认模式）
         try:
+            print("🔗 配置直连模式...")
             self.setup_direct_connection()
             print("✅ 直连配置完成")
         except Exception as e:
@@ -765,13 +767,13 @@ class CoinankAPI:
         }
 
 
-def create_api_client(use_proxy=True):
-    """创建API客户端实例 - 支持代理连接"""
+def create_api_client(use_proxy=False):
+    """创建API客户端实例 - 默认使用直连"""
     return CoinankAPI(use_proxy=use_proxy)
 
 
-def quick_test(use_proxy=True):
-    """快速测试API连接 - 支持代理"""
+def quick_test(use_proxy=False):
+    """快速测试API连接 - 默认使用直连"""
     connection_type = "代理" if use_proxy else "直连"
     print(f"🧪 快速测试API连接 ({connection_type})...")
 
